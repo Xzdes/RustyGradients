@@ -1,26 +1,12 @@
+use crate::core::autograd::{self, BackwardContext};
 use crate::ops;
 use ndarray::{ArrayD, IxDyn};
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-// use std::ops::Sub; // Убираем неиспользуемый импорт
 use std::rc::Rc;
-
-// ... остальной код файла без изменений ...
-
-pub struct BackwardContext {
-    pub inputs: Vec<Tensor>,
-    pub backward_fn: Box<dyn Fn(&ArrayD<f32>)>,
-}
-
-impl fmt::Debug for BackwardContext {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("BackwardContext")
-            .field("num_inputs", &self.inputs.len())
-            .finish()
-    }
-}
+// --- ИСПРАВЛЕНИЕ: Импортируем трейт Sub здесь ---
+use std::ops::Sub;
 
 #[derive(Clone)]
 pub struct Tensor {
@@ -70,54 +56,32 @@ impl Tensor {
         Self::new(data, requires_grad)
     }
 
+    // Мы будем вызывать операции через трейты или напрямую из `main`,
+    // поэтому эти методы-обертки больше не нужны в таком виде.
+    // Оставим только `dot`, так как для него нет стандартного трейта.
+    
     pub fn dot(&self, other: &Tensor) -> Tensor {
-        ops::dot_op(self, other)
+        // Указываем полный путь к функции, чтобы избежать неоднозначности.
+        crate::ops::matmul::dot_op(self, other)
     }
 
+    // --- ИСПРАВЛЕНИЕ: Метод .sub() теперь использует оператор `-` ---
+    // Это исправляет бесконечную рекурсию.
     pub fn sub(&self, other: &Tensor) -> Tensor {
+        // `self - other` вызовет реализацию `impl Sub for &Tensor` из `ops::basic_ops`
         self - other
     }
 
     pub fn powf(&self, power: f32) -> Tensor {
-        ops::powf_op(self, power)
+        crate::ops::elementwise::powf_op(self, power)
     }
 
     pub fn sum(&self) -> Tensor {
-        ops::sum_op(self)
+        crate::ops::reduction::sum_op(self)
     }
 
     pub fn backward(&self) {
-        let mut sorted_graph = Vec::new();
-        let mut visited = HashSet::new();
-
-        fn build_graph(tensor: &Tensor, visited: &mut HashSet<Tensor>, sorted: &mut Vec<Tensor>) {
-            if visited.contains(tensor) {
-                return;
-            }
-            visited.insert(tensor.clone());
-
-            if let Some(ctx) = &tensor.ctx {
-                for input_tensor in &ctx.inputs {
-                    build_graph(input_tensor, visited, sorted);
-                }
-            }
-            sorted.push(tensor.clone());
-        }
-
-        build_graph(self, &mut visited, &mut sorted_graph);
-
-        if let Some(grad) = &self.grad {
-            grad.borrow_mut().fill(1.0);
-        } else {
-            panic!("backward() called on a tensor that does not require gradients");
-        }
-
-        for tensor in sorted_graph.iter().rev() {
-            if let Some(ctx) = &tensor.ctx {
-                let upstream_grad = tensor.grad.as_ref().unwrap().borrow();
-                (ctx.backward_fn)(&upstream_grad);
-            }
-        }
+        autograd::backward(self);
     }
 }
 

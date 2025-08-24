@@ -1,13 +1,5 @@
+use crate::optim::optimizer::Optimizer;
 use crate::tensor::Tensor;
-
-/// Трейт, определяющий общий интерфейс для всех оптимизаторов.
-pub trait Optimizer {
-    /// Выполняет один шаг оптимизации (обновляет параметры).
-    fn step(&mut self);
-
-    /// Обнуляет градиенты всех параметров.
-    fn zero_grad(&self);
-}
 
 /// Оптимизатор стохастического градиентного спуска (SGD).
 pub struct SGD {
