@@ -1,124 +1,151 @@
+// src/ops/basic_ops.rs
+// Реализация Add, Sub, Mul для тензоров
+// С корректной поддержкой broadcast и автоматическим дифференцированием
+
 use crate::core::autograd::BackwardContext;
 use crate::tensor::Tensor;
-use ndarray::Axis;
-use std::ops::{Add, Mul, Sub};
+use ndarray::{Axis, ArrayD};
+use std::ops::{Add, Sub, Mul};
 use std::rc::Rc;
 
-// Реализуем трейт `Add` с корректной обработкой "вещания" (broadcasting) в обратном проходе.
+/// Уменьшает градиент `upstream` до формы `target_shape`
+/// путём суммирования по лишним осям (broadcasting).
+fn reduce_grad(upstream: &ArrayD<f32>, target_shape: &[usize]) -> ArrayD<f32> {
+    let mut current = upstream.clone();
+    // Пока размерность больше целевой
+    while current.ndim() > target_shape.len() {
+        current = current.sum_axis(Axis(0));
+    }
+    // Сводим оставшиеся оси, если нужно
+    for axis in 0..current.ndim() {
+        if current.shape()[axis] != target_shape[axis] {
+            current = current.sum_axis(Axis(axis));
+        }
+    }
+    // Приводим к точной форме
+    if current.shape() != target_shape {
+        current = current
+            .into_shape_with_order(target_shape.to_vec())
+            .expect("reduce_grad: incompatible shapes");
+    }
+    current
+}
+
+// ------------------ Add ------------------
 impl Add<&Tensor> for &Tensor {
     type Output = Tensor;
 
     fn add(self, rhs: &Tensor) -> Self::Output {
-        let result_data = &*self.data.borrow() + &*rhs.data.borrow();
+        let lhs_data = self.data.borrow();
+        let rhs_data = rhs.data.borrow();
+        let result_data = &*lhs_data + &*rhs_data;
         let requires_grad = self.grad.is_some() || rhs.grad.is_some();
         let mut result = Tensor::new(result_data, requires_grad);
 
         if requires_grad {
-            let a_for_ctx = self.clone();
-            let b_for_ctx = rhs.clone();
-            let a_for_closure = self.clone();
-            let b_for_closure = rhs.clone();
+            let lhs_shape = self.data.borrow().shape().to_vec();
+            let rhs_shape = rhs.data.borrow().shape().to_vec();
 
-            let backward_fn = Box::new(move |upstream_grad: &ndarray::ArrayD<f32>| {
-                // Градиент для 'a'
-                if let Some(grad_a) = &a_for_closure.grad {
-                    let mut grad_a_borrow = grad_a.borrow_mut();
-                    if grad_a_borrow.shape() != upstream_grad.shape() {
-                        let summed_grad = upstream_grad.sum_axis(Axis(0));
-                        let reshaped_grad =
-                            summed_grad.into_shape_with_order(grad_a_borrow.shape()).unwrap();
-                        *grad_a_borrow += &reshaped_grad.into_dyn();
-                    } else {
-                        *grad_a_borrow += upstream_grad;
-                    }
+            let lhs_for_closure = self.clone();
+            let rhs_for_closure = rhs.clone();
+
+            let backward_fn = Box::new(move |upstream_grad: &ArrayD<f32>| {
+                if let Some(grad_lhs) = &lhs_for_closure.grad {
+                    let reduced = reduce_grad(upstream_grad, &lhs_shape);
+                    grad_lhs.borrow_mut().scaled_add(1.0, &reduced);
                 }
-                // Градиент для 'b'
-                if let Some(grad_b) = &b_for_closure.grad {
-                    let mut grad_b_borrow = grad_b.borrow_mut();
-                    if grad_b_borrow.shape() != upstream_grad.shape() {
-                        let summed_grad = upstream_grad.sum_axis(Axis(0));
-                        let reshaped_grad =
-                            summed_grad.into_shape_with_order(grad_b_borrow.shape()).unwrap();
-                        *grad_b_borrow += &reshaped_grad.into_dyn();
-                    } else {
-                        *grad_b_borrow += upstream_grad;
-                    }
+                if let Some(grad_rhs) = &rhs_for_closure.grad {
+                    let reduced = reduce_grad(upstream_grad, &rhs_shape);
+                    grad_rhs.borrow_mut().scaled_add(1.0, &reduced);
                 }
             });
 
             result.ctx = Some(Rc::new(BackwardContext {
-                inputs: vec![a_for_ctx, b_for_ctx],
+                inputs: vec![self.clone(), rhs.clone()],
                 backward_fn,
             }));
         }
+
         result
     }
 }
 
-// Реализуем трейт `Mul` для поэлементного умножения.
-impl Mul<&Tensor> for &Tensor {
-    type Output = Tensor;
-
-    fn mul(self, rhs: &Tensor) -> Self::Output {
-        let result_data = &*self.data.borrow() * &*rhs.data.borrow();
-        let requires_grad = self.grad.is_some() || rhs.grad.is_some();
-        let mut result = Tensor::new(result_data, requires_grad);
-
-        if requires_grad {
-            let a_for_ctx = self.clone();
-            let b_for_ctx = rhs.clone();
-            let a_for_closure = self.clone();
-            let b_for_closure = rhs.clone();
-
-            let backward_fn = Box::new(move |upstream_grad: &ndarray::ArrayD<f32>| {
-                if let Some(grad_a) = &a_for_closure.grad {
-                    let b_data = b_for_closure.data.borrow();
-                    *grad_a.borrow_mut() += &(upstream_grad * &*b_data);
-                }
-                if let Some(grad_b) = &b_for_closure.grad {
-                    let a_data = a_for_closure.data.borrow();
-                    *grad_b.borrow_mut() += &(upstream_grad * &*a_data);
-                }
-            });
-
-            result.ctx = Some(Rc::new(BackwardContext {
-                inputs: vec![a_for_ctx, b_for_ctx],
-                backward_fn,
-            }));
-        }
-        result
-    }
-}
-
-// Реализация операции вычитания.
+// ------------------ Sub ------------------
 impl Sub<&Tensor> for &Tensor {
     type Output = Tensor;
 
     fn sub(self, rhs: &Tensor) -> Self::Output {
-        let result_data = &*self.data.borrow() - &*rhs.data.borrow();
+        let lhs_data = self.data.borrow();
+        let rhs_data = rhs.data.borrow();
+        let result_data = &*lhs_data - &*rhs_data;
         let requires_grad = self.grad.is_some() || rhs.grad.is_some();
         let mut result = Tensor::new(result_data, requires_grad);
 
         if requires_grad {
-            let a_for_ctx = self.clone();
-            let b_for_ctx = rhs.clone();
-            let a_for_closure = self.clone();
-            let b_for_closure = rhs.clone();
+            let lhs_shape = self.data.borrow().shape().to_vec();
+            let rhs_shape = rhs.data.borrow().shape().to_vec();
 
-            let backward_fn = Box::new(move |upstream_grad: &ndarray::ArrayD<f32>| {
-                if let Some(grad_a) = &a_for_closure.grad {
-                    *grad_a.borrow_mut() += upstream_grad;
+            let lhs_for_closure = self.clone();
+            let rhs_for_closure = rhs.clone();
+
+            let backward_fn = Box::new(move |upstream_grad: &ArrayD<f32>| {
+                if let Some(grad_lhs) = &lhs_for_closure.grad {
+                    let reduced = reduce_grad(upstream_grad, &lhs_shape);
+                    grad_lhs.borrow_mut().scaled_add(1.0, &reduced);
                 }
-                if let Some(grad_b) = &b_for_closure.grad {
-                    *grad_b.borrow_mut() -= upstream_grad;
+                if let Some(grad_rhs) = &rhs_for_closure.grad {
+                    let reduced = reduce_grad(upstream_grad, &rhs_shape);
+                    grad_rhs.borrow_mut().scaled_add(-1.0, &reduced);
                 }
             });
 
             result.ctx = Some(Rc::new(BackwardContext {
-                inputs: vec![a_for_ctx, b_for_ctx],
+                inputs: vec![self.clone(), rhs.clone()],
                 backward_fn,
             }));
         }
+
+        result
+    }
+}
+
+// ------------------ Mul ------------------
+impl Mul<&Tensor> for &Tensor {
+    type Output = Tensor;
+
+    fn mul(self, rhs: &Tensor) -> Self::Output {
+        let lhs_data = self.data.borrow();
+        let rhs_data = rhs.data.borrow();
+        let result_data = &*lhs_data * &*rhs_data;
+        let requires_grad = self.grad.is_some() || rhs.grad.is_some();
+        let mut result = Tensor::new(result_data, requires_grad);
+
+        if requires_grad {
+            let lhs_shape = self.data.borrow().shape().to_vec();
+            let rhs_shape = rhs.data.borrow().shape().to_vec();
+
+            let lhs_for_closure = self.clone();
+            let rhs_for_closure = rhs.clone();
+
+            let backward_fn = Box::new(move |upstream_grad: &ArrayD<f32>| {
+                if let Some(grad_lhs) = &lhs_for_closure.grad {
+                    let rhs_val = rhs_for_closure.data.borrow();
+                    let reduced = reduce_grad(&(upstream_grad * &*rhs_val), &lhs_shape);
+                    grad_lhs.borrow_mut().scaled_add(1.0, &reduced);
+                }
+                if let Some(grad_rhs) = &rhs_for_closure.grad {
+                    let lhs_val = lhs_for_closure.data.borrow();
+                    let reduced = reduce_grad(&(upstream_grad * &*lhs_val), &rhs_shape);
+                    grad_rhs.borrow_mut().scaled_add(1.0, &reduced);
+                }
+            });
+
+            result.ctx = Some(Rc::new(BackwardContext {
+                inputs: vec![self.clone(), rhs.clone()],
+                backward_fn,
+            }));
+        }
+
         result
     }
 }
