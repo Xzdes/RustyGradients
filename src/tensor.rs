@@ -1,11 +1,9 @@
-// --- ИСПРАВЛЕНИЕ: Удаляем `crate::ops` ---
 use crate::core::autograd::{self, BackwardContext};
 use ndarray::{ArrayD, IxDyn};
 use std::cell::RefCell;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-// --- ИСПРАВЛЕНИЕ: Удаляем `std::ops::Sub`, так как он используется только в методе `sub`, а не во всем файле. ---
 
 #[derive(Clone)]
 pub struct Tensor {
@@ -60,9 +58,9 @@ impl Tensor {
     }
 
     pub fn sub(&self, other: &Tensor) -> Tensor {
-        // Чтобы использовать оператор `-`, трейт Sub должен быть в области видимости.
-        // Мы можем импортировать его прямо здесь, локально для метода.
-        use std::ops::Sub;
+        // --- ИСПРАВЛЕНИЕ: Удаляем ненужный импорт `use std::ops::Sub;` ---
+        // Трейт уже реализован в `ops::basic_ops`, и Rust его "видит"
+        // без явного импорта в месте вызова.
         self - other
     }
 
