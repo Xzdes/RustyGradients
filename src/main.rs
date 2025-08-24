@@ -2,8 +2,8 @@
 use slmrustai::nn::{Linear, Module};
 use slmrustai::optim::{Optimizer, SGD};
 use slmrustai::tensor::Tensor;
-// Импортируем трейты для операций `+`, `-`, `*`
-use std::ops::{Add, Mul, Sub};
+// --- ИСПРАВЛЕНИЕ: Удаляем неиспользуемый импорт трейтов ---
+// use std::ops::{Add, Mul, Sub};
 
 fn main() {
     println!("--- Начинаем тренировочный цикл с новой модульной структурой ---");
@@ -35,8 +35,8 @@ fn main() {
 
         // Вычисление ошибки (MSE Loss)
         // Теперь мы используем операторы, реализованные через трейты
-        let error = &y_pred - &y_true;
-        let loss = &error.powf(2.0).sum(); // sum() возвращает новый тензор
+        let error = y_pred.sub(&y_true); // Используем метод .sub()
+        let loss = error.powf(2.0).sum(); 
 
         // Печатаем ошибку
         if epoch % 5 == 0 || epoch == 1 {

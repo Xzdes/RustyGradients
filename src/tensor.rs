@@ -1,12 +1,11 @@
+// --- ИСПРАВЛЕНИЕ: Удаляем `crate::ops` ---
 use crate::core::autograd::{self, BackwardContext};
-use crate::ops;
 use ndarray::{ArrayD, IxDyn};
 use std::cell::RefCell;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-// --- ИСПРАВЛЕНИЕ: Импортируем трейт Sub здесь ---
-use std::ops::Sub;
+// --- ИСПРАВЛЕНИЕ: Удаляем `std::ops::Sub`, так как он используется только в методе `sub`, а не во всем файле. ---
 
 #[derive(Clone)]
 pub struct Tensor {
@@ -56,19 +55,14 @@ impl Tensor {
         Self::new(data, requires_grad)
     }
 
-    // Мы будем вызывать операции через трейты или напрямую из `main`,
-    // поэтому эти методы-обертки больше не нужны в таком виде.
-    // Оставим только `dot`, так как для него нет стандартного трейта.
-    
     pub fn dot(&self, other: &Tensor) -> Tensor {
-        // Указываем полный путь к функции, чтобы избежать неоднозначности.
         crate::ops::matmul::dot_op(self, other)
     }
 
-    // --- ИСПРАВЛЕНИЕ: Метод .sub() теперь использует оператор `-` ---
-    // Это исправляет бесконечную рекурсию.
     pub fn sub(&self, other: &Tensor) -> Tensor {
-        // `self - other` вызовет реализацию `impl Sub for &Tensor` из `ops::basic_ops`
+        // Чтобы использовать оператор `-`, трейт Sub должен быть в области видимости.
+        // Мы можем импортировать его прямо здесь, локально для метода.
+        use std::ops::Sub;
         self - other
     }
 
