@@ -3,4 +3,5 @@ pub mod basic_ops;
 pub mod elementwise;
 pub mod matmul;
 pub mod reduction;
-pub mod embedding; // <-- Добавляем новый модуль
+pub mod embedding;
+pub mod norm; // <-- Добавляем новый модуль

@@ -80,12 +80,15 @@ impl Tensor {
     pub fn log(&self) -> Tensor {
         crate::ops::elementwise::log_op(self)
     }
-
-    // --- НОВЫЙ МЕТОД ---
-    /// Выполняет операцию Embedding, используя текущий тензор как `ids`,
-    /// а `weights` как таблицу для выборки.
+    
     pub fn embedding(&self, weights: &Tensor) -> Tensor {
         crate::ops::embedding::embedding_op(self, weights)
+    }
+
+    // --- НОВЫЙ МЕТОД ---
+    /// Выполняет операцию Layer Normalization.
+    pub fn layer_norm(&self, gamma: &Tensor, beta: &Tensor, epsilon: f32) -> Tensor {
+        crate::ops::norm::layernorm_op(self, gamma, beta, epsilon)
     }
 
     pub fn backward(&self) {

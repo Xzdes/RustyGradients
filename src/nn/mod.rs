@@ -3,10 +3,10 @@ pub mod linear;
 pub mod module;
 pub mod activations;
 pub mod containers;
-pub mod embedding; // <-- Раскомментируем эту строку
+pub mod embedding;
+pub mod norm; // <-- Раскомментируем эту строку
 
-// -- Оставляем эти модули закомментированными --
-// pub mod norm;
+// -- Оставляем этот модуль закомментированным --
 // pub mod attention;
 
 
@@ -15,4 +15,5 @@ pub use module::Module;
 pub use linear::Linear;
 pub use activations::{ReLU, Sigmoid};
 pub use containers::Sequential;
-pub use embedding::Embedding; // <-- Добавляем Embedding в публичный экспорт
+pub use embedding::Embedding;
+pub use norm::LayerNorm; // <-- Добавляем LayerNorm в публичный экспорт

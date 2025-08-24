@@ -1,49 +1,75 @@
-use slmrustai::nn::{Embedding, Module};
+use slmrustai::nn::{LayerNorm, Module};
 use slmrustai::tensor::Tensor;
 
+// Вспомогательная функция для проверки градиентов
+fn check_grads(tensor: &Tensor, name: &str) {
+    let grad_sum = tensor.grad.as_ref().unwrap().borrow().sum();
+    println!("Сумма градиентов для '{}': {}", name, grad_sum);
+    if grad_sum.abs() < 1e-6 {
+        println!("--> ПРЕДУПРЕЖДЕНИЕ: Градиент для '{}' почти нулевой!", name);
+    } else {
+        println!("--> OK: Градиент для '{}' успешно вычислен.", name);
+    }
+}
+
 fn main() {
-    println!("--- Тестируем слой Embedding ---");
+    println!("--- Тестируем слой LayerNorm ---");
 
     // Параметры
-    let vocab_size = 10;    // Размер словаря (10 уникальных слов)
-    let embedding_dim = 4;  // Размерность вектора для каждого слова
-    let batch_size = 2;     // Два предложения в батче
-    let seq_len = 3;        // По три слова в каждом предложении
+    let batch_size = 2;
+    let features = 4;
 
-    // 1. Создаем слой Embedding
-    let embedding_layer = Embedding::new(vocab_size, embedding_dim);
-    println!("Матрица весов Embedding (до backward):");
-    // .parameters() возвращает Vec<Tensor>, берем первый (и единственный) элемент
-    println!("{:?}", embedding_layer.parameters()[0]);
+    // 1. Создаем слой LayerNorm
+    let ln_layer = LayerNorm::new(features);
+    let params = ln_layer.parameters();
+    let gamma = &params[0];
+    let beta = &params[1];
 
-    // 2. Создаем входные данные - батч с ID токенов.
-    // Это два "предложения": [1, 5, 0] и [8, 3, 5]
-    let input_ids_data = ndarray::array![
-        [1.0, 5.0, 0.0],
-        [8.0, 3.0, 5.0]
-    ].into_dyn();
-    // Входные ID не требуют градиента
-    let input_ids = Tensor::new(input_ids_data, false);
-    
-    println!("\nВходные ID токенов (форма [{}, {}]):", batch_size, seq_len);
-    println!("{:?}", input_ids.data.borrow());
+    println!("Gamma (до backward):");
+    println!("{:?}", gamma);
+    println!("\nBeta (до backward):");
+    println!("{:?}", beta);
+
+    // 2. Создаем случайные входные данные
+    let input_data = ndarray::Array::from_shape_vec(
+        (batch_size, features),
+        vec![0.1, 0.5, -0.2, 1.0, -1.5, 0.8, 0.0, 0.3],
+    )
+    .unwrap()
+    .into_dyn();
+    let input_tensor = Tensor::new(input_data, true);
+
+    println!("\nВходной тензор:");
+    println!("{:?}", input_tensor);
 
     // 3. Прямой проход
-    let output = embedding_layer.forward(&input_ids);
+    let output = ln_layer.forward(&input_tensor);
+    
+    // Чтобы проверить backward, нам нужна скалярная ошибка.
+    // Просто просуммируем все выходы.
+    let loss = output.sum();
 
-    println!("\nВыход Embedding слоя (форма [{}, {}, {}]):", batch_size, seq_len, embedding_dim);
-    println!("{:?}", output.data.borrow());
+    println!("\nВыход LayerNorm (просуммированный):");
+    println!("{:?}", loss.data.borrow());
 
     // 4. Обратный проход
-    // Чтобы проверить градиенты, мы вызовем backward() на выходе.
-    // Это сымитирует приход градиента от последующих слоев сети.
     println!("\n--- Запускаем backward() на выходе ---");
-    output.backward();
+    loss.backward();
 
-    println!("\nМатрица весов Embedding (после backward):");
-    println!("{:?}", embedding_layer.parameters()[0]);
+    println!("\n--- Проверяем градиенты после backward() ---\n");
     
-    println!("\nПроверка: градиент должен появиться только у тех строк,");
-    println!("которые соответствуют ID во входных данных (0, 1, 3, 5, 8).");
-    println!("Причем у строки 5 градиент должен быть вдвое больше, так как ID 5 встречался дважды.");
+    // Проверяем градиенты для обучаемых параметров gamma и beta
+    check_grads(gamma, "gamma");
+    check_grads(beta, "beta");
+    
+    // Проверяем градиент для входа
+    check_grads(&input_tensor, "input_tensor");
+    
+    println!("\n--- Детальные градиенты ---");
+    println!("Gamma (после backward):");
+    println!("{:?}", gamma);
+    println!("\nBeta (после backward):");
+    println!("{:?}", beta);
+    println!("\nВходной тензор (после backward):");
+    println!("{:?}", input_tensor);
 }
