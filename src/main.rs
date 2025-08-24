@@ -1,25 +1,24 @@
-// Импортируем все необходимые компоненты, включая Sigmoid.
+// Импортируем нашу новую функцию потерь.
+use slmrustai::losses::mse_loss;
 use slmrustai::nn::{Linear, Module, ReLU, Sequential, Sigmoid};
-use slmrustai::optim::{Optimizer, SGD};
+use slmrustai::optim::{Adam, Optimizer};
 use slmrustai::tensor::Tensor;
 
 fn main() {
-    println!("--- Решаем задачу XOR с помощью многослойной нейросети ---");
+    println!("--- Решаем задачу XOR с помощью Adam и модуля losses ---");
 
-    // 1. Создаем модель с помощью `Sequential`.
+    // 1. Создаем модель (без изменений)
     let model = Sequential::new(vec![
-        Box::new(Linear::new(2, 4)), // Входной слой: 2 входа -> 4 скрытых нейрона
-        Box::new(ReLU::new()),       // Нелинейная функция активации
-        Box::new(Linear::new(4, 1)), // Выходной слой: 4 скрытых -> 1 выход
-        // --- НОВЫЙ СЛОЙ: Добавляем Sigmoid, чтобы выход был в диапазоне (0, 1) ---
+        Box::new(Linear::new(2, 4)),
+        Box::new(ReLU::new()),
+        Box::new(Linear::new(4, 1)),
         Box::new(Sigmoid::new()),
     ]);
 
-    // 2. Создаем оптимизатор.
-    // Увеличим learning rate, чтобы помочь модели быстрее найти решение.
-    let mut optimizer = SGD::new(model.parameters(), 0.5);
+    // 2. Создаем оптимизатор Adam (без изменений)
+    let mut optimizer = Adam::new(model.parameters(), 0.01, None, None);
 
-    // 3. Данные для обучения (XOR)
+    // 3. Данные для обучения (XOR) (без изменений)
     let x_data = ndarray::array![
         [0.0, 0.0],
         [1.0, 0.0],
@@ -32,18 +31,17 @@ fn main() {
     let y_true_data = ndarray::array![[0.0], [1.0], [1.0], [0.0]].into_dyn();
     let y_true = Tensor::new(y_true_data, false);
 
-    // 4. Тренировочный цикл. Увеличим количество эпох, чтобы дать модели время сойтись.
+    // 4. Тренировочный цикл
     println!("\n--- Старт обучения ---");
-    for epoch in 1..=3000 {
+    for epoch in 1..=1000 {
         // Прямой проход
         let y_pred = model.forward(&x);
 
-        // Вычисление ошибки (MSE Loss)
-        let error = y_pred.sub(&y_true);
-        let loss = error.powf(2.0).sum();
+        // --- ИЗМЕНЕНИЕ: Используем функцию `mse_loss` ---
+        let loss = mse_loss(&y_pred, &y_true);
 
-        // Печатаем ошибку реже.
-        if epoch % 500 == 0 || epoch == 1 {
+        // Печатаем ошибку
+        if epoch % 200 == 0 || epoch == 1 {
             println!(
                 "Эпоха: {}, Ошибка (Loss): {:?}",
                 epoch,
