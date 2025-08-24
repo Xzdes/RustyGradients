@@ -2,7 +2,7 @@ use crate::tensor::Tensor;
 use ndarray::ArrayD;
 use std::collections::HashSet;
 use std::fmt;
-use std::rc::Rc;
+// --- ИСПРАВЛЕНИЕ: Удаляем неиспользуемый `std::rc::Rc` ---
 
 /// Контекст, который создается в результате операции.
 /// Он содержит "указатели" на входные тензоры и функцию,

@@ -1,6 +1,6 @@
-use crate::tensor::Tensor;
 use crate::core::autograd::BackwardContext;
-use ndarray::{Axis, Order};
+use crate::tensor::Tensor;
+use ndarray::Axis;
 use std::ops::{Add, Mul, Sub};
 use std::rc::Rc;
 
