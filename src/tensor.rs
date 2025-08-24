@@ -58,9 +58,11 @@ impl Tensor {
     }
 
     pub fn sub(&self, other: &Tensor) -> Tensor {
-        use std::ops::Sub;
+        // --- ИСПРАВЛЕНИЕ: Удаляем ненужный импорт `use std::ops::Sub;` ---
         self - other
     }
+
+
 
     pub fn powf(&self, power: f32) -> Tensor {
         crate::ops::elementwise::powf_op(self, power)
@@ -70,8 +72,6 @@ impl Tensor {
         crate::ops::reduction::sum_op(self)
     }
     
-    // --- НОВЫЙ МЕТОД ---
-    /// Применяет функцию активации ReLU к каждому элементу тензора.
     pub fn relu(&self) -> Tensor {
         crate::ops::elementwise::relu_op(self)
     }
