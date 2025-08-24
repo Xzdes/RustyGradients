@@ -38,18 +38,16 @@ impl MultiHeadAttention {
 }
 
 impl Module for MultiHeadAttention {
-    fn forward(&self, x: &Tensor) -> Tensor {
-        // --- ИСПРАВЛЕНИЕ: Продлеваем время жизни заимствования ---
-        let x_data_borrow = x.data.borrow();
-        let shape = x_data_borrow.shape();
-        let (batch_size, seq_len, _) = (shape[0], shape[1], shape[2]);
+    fn forward(&self, inputs: &Tensor) -> Tensor {
+        let batch_size = inputs.data.borrow().shape()[0];
+        let seq_len = inputs.data.borrow().shape()[1];
+        
+        // 1. Линейные проекции для Q, K, V
+        let q = self.w_q.forward(inputs);
+        let k = self.w_k.forward(inputs);
+        let v = self.w_v.forward(inputs);
 
-        // 1. Линейные проекции
-        let q = self.w_q.forward(x);
-        let k = self.w_k.forward(x);
-        let v = self.w_v.forward(x);
-
-        // 2. Разделение на головы
+        // 2. Разделение на "головы" и транспонирование
         let q_heads = q
             .reshape(vec![batch_size, seq_len, self.num_heads, self.head_dim])
             .transpose(1, 2);
@@ -87,10 +85,10 @@ impl Module for MultiHeadAttention {
 
     fn parameters(&self) -> Vec<Tensor> {
         let mut params = Vec::new();
-        params.append(&mut self.w_q.parameters());
-        params.append(&mut self.w_k.parameters());
-        params.append(&mut self.w_v.parameters());
-        params.append(&mut self.w_o.parameters());
+        params.extend(self.w_q.parameters());
+        params.extend(self.w_k.parameters());
+        params.extend(self.w_v.parameters());
+        params.extend(self.w_o.parameters());
         params
     }
 }

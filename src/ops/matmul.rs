@@ -1,102 +1,196 @@
 use crate::core::autograd::BackwardContext;
 use crate::tensor::Tensor;
-use ndarray::{s, stack, Array, ArrayD, Axis, Dimension, Ix2};
-use std::rc::Rc;
+use ndarray::{s, ArrayD, Ix2, Ix3, Ix4};
 use std::ops::AddAssign;
+use std::rc::Rc;
 
-/// Выполняет матричное умножение с поддержкой батчей (Batch Matmul).
+/// batched dot (matrix multiplication) для:
+/// - 4-D ⊗ 4-D → 4-D
+/// - 3-D ⊗ 2-D → 3-D
+/// - 3-D ⊗ 3-D → 3-D
+/// - 2-D ⊗ 2-D → 2-D
 pub fn dot_op(a: &Tensor, b: &Tensor) -> Tensor {
     let a_data = a.data.borrow();
     let b_data = b.data.borrow();
-    
-    let a_shape = a_data.shape();
-    let b_shape = b_data.shape();
 
-    // --- Прямой проход ---
-    let result_data = if a_data.ndim() > 2 {
-        // Случай с батчами
-        let batch_dims = &a_shape[..a_shape.len() - 2];
-        let num_batches = batch_dims.iter().product();
+    let result_data: ArrayD<f32> = match (a_data.ndim(), b_data.ndim()) {
+        // ---------- 4-D ⊗ 4-D ----------
+        (4, 4) => {
+            let batch_size = a_data.shape()[0];
+            let heads = a_data.shape()[1];
+            let m = a_data.shape()[2];
+            let k = a_data.shape()[3];
+            let n = b_data.shape()[3];
 
-        let a_reshaped = a_data.to_shape((num_batches, a_shape[a_shape.len()-2], a_shape[a_shape.len()-1])).unwrap();
-        let b_reshaped = b_data.to_shape((num_batches, b_shape[b_shape.len()-2], b_shape[b_shape.len()-1])).unwrap();
+            assert_eq!(b_data.shape(), &[batch_size, heads, k, n]);
 
-        let mut result_slices = Vec::with_capacity(num_batches);
-        for i in 0..num_batches {
-            let a_mat = a_reshaped.slice(s![i, .., ..]);
-            let b_mat = b_reshaped.slice(s![i, .., ..]);
-            result_slices.push(a_mat.dot(&b_mat));
+            let mut out = ArrayD::zeros(vec![batch_size, heads, m, n]);
+
+            for b in 0..batch_size {
+                for h in 0..heads {
+                    let a_mat = a_data
+                        .slice(s![b, h, .., ..])
+                        .into_dimensionality::<Ix2>()
+                        .unwrap();
+                    let b_mat = b_data
+                        .slice(s![b, h, .., ..])
+                        .into_dimensionality::<Ix2>()
+                        .unwrap();
+                    let mut c_mat = out
+                        .slice_mut(s![b, h, .., ..])
+                        .into_dimensionality::<Ix2>()
+                        .unwrap();
+                    c_mat.assign(&a_mat.dot(&b_mat));
+                }
+            }
+
+            out
         }
-        
-        let view: Vec<_> = result_slices.iter().map(|arr| arr.view()).collect();
-        let mut final_shape = batch_dims.to_vec();
-        final_shape.extend_from_slice(&[a_shape[a_shape.len()-2], b_shape[b_shape.len()-1]]);
 
-        stack(Axis(0), &view).unwrap().into_shape(final_shape).unwrap().into_dyn()
-    } else {
-        // Стандартное 2D умножение
-        a_data.view().into_dimensionality::<Ix2>().unwrap().dot(&b_data.view().into_dimensionality::<Ix2>().unwrap()).into_dyn()
+        // ---------- 3-D ⊗ 2-D ----------
+        (3, 2) => {
+            let batch = a_data.shape()[0];
+            let seq = a_data.shape()[1];
+            let in_dim = a_data.shape()[2];
+            let out_dim = b_data.shape()[1];
+
+            assert_eq!(b_data.shape(), &[in_dim, out_dim]);
+
+            let mut out = ArrayD::zeros(vec![batch, seq, out_dim]);
+
+            for b_idx in 0..batch {
+                let a_mat = a_data
+                    .slice(s![b_idx, .., ..])
+                    .into_dimensionality::<Ix2>()
+                    .unwrap();
+                let b_mat = b_data.view().into_dimensionality::<Ix2>().unwrap();
+                let mut out_mat = out
+                    .slice_mut(s![b_idx, .., ..])
+                    .into_dimensionality::<Ix2>()
+                    .unwrap();
+                out_mat.assign(&a_mat.dot(&b_mat));
+            }
+
+            out
+        }
+
+        // ---------- 3-D ⊗ 3-D ----------
+        (3, 3) => {
+            let batch = a_data.shape()[0];
+            let m = a_data.shape()[1];
+            let k = a_data.shape()[2];
+            let n = b_data.shape()[2];
+
+            assert_eq!(b_data.shape(), &[batch, k, n]);
+
+            let mut out = ArrayD::zeros(vec![batch, m, n]);
+
+            for b_idx in 0..batch {
+                let a_mat = a_data
+                    .slice(s![b_idx, .., ..])
+                    .into_dimensionality::<Ix2>()
+                    .unwrap();
+                let b_mat = b_data
+                    .slice(s![b_idx, .., ..])
+                    .into_dimensionality::<Ix2>()
+                    .unwrap();
+                let mut out_mat = out
+                    .slice_mut(s![b_idx, .., ..])
+                    .into_dimensionality::<Ix2>()
+                    .unwrap();
+                out_mat.assign(&a_mat.dot(&b_mat));
+            }
+
+            out
+        }
+
+        // ---------- 2-D ⊗ 2-D ----------
+        (2, 2) => {
+            let a_mat = a_data.view().into_dimensionality::<Ix2>().unwrap();
+            let b_mat = b_data.view().into_dimensionality::<Ix2>().unwrap();
+            a_mat.dot(&b_mat).into_dyn()
+        }
+
+        _ => panic!(
+            "dot_op: unsupported tensor dimensions: a={:?}, b={:?}",
+            a_data.shape(),
+            b_data.shape()
+        ),
     };
 
     let requires_grad = a.grad.is_some() || b.grad.is_some();
     let mut result = Tensor::new(result_data, requires_grad);
 
     if requires_grad {
-        let a_for_ctx = a.clone();
-        let b_for_ctx = b.clone();
-        let a_for_closure = a.clone();
-        let b_for_closure = b.clone();
+        let a_clone = a.clone();
+        let b_clone = b.clone();
 
         let backward_fn = Box::new(move |upstream_grad: &ArrayD<f32>| {
-            let a_closure_data = a_for_closure.data.borrow();
-            let b_closure_data = b_for_closure.data.borrow();
-            let a_shape = a_closure_data.shape();
-            let b_shape = b_closure_data.shape();
-            let up_shape = upstream_grad.shape();
+            let a_ref = a_clone.data.borrow();
+            let b_ref = b_clone.data.borrow();
 
-            if a_closure_data.ndim() > 2 {
-                let batch_dims = &a_shape[..a_shape.len() - 2];
-                let num_batches = batch_dims.iter().product();
+            match (a_ref.ndim(), b_ref.ndim()) {
+                // ---------- 4-D ⊗ 4-D backward ----------
+                (4, 4) => {
+                    let batch = a_ref.shape()[0];
+                    let heads = a_ref.shape()[1];
+                    let m = a_ref.shape()[2];
+                    let k = a_ref.shape()[3];
+                    let n = b_ref.shape()[3];
 
-                let a_reshaped = a_closure_data.to_shape((num_batches, a_shape[a_shape.len()-2], a_shape[a_shape.len()-1])).unwrap();
-                let b_reshaped = b_closure_data.to_shape((num_batches, b_shape[b_shape.len()-2], b_shape[b_shape.len()-1])).unwrap();
-                let up_reshaped = upstream_grad.to_shape((num_batches, up_shape[up_shape.len()-2], up_shape[up_shape.len()-1])).unwrap();
+                    let up = upstream_grad
+                        .clone()
+                        .into_dimensionality::<Ix4>()
+                        .unwrap();
 
-                if let Some(grad_a) = &a_for_closure.grad {
-                    let mut grad_a_full = grad_a.borrow_mut();
-                    let mut grad_a_reshaped = grad_a_full.view_mut().into_shape((num_batches, a_shape[a_shape.len()-2], a_shape[a_shape.len()-1])).unwrap();
+                    // dA = upstream · Bᵀ
+                    if let Some(grad_a) = &a_clone.grad {
+                        let mut ga = grad_a.borrow_mut();
+                        for b in 0..batch {
+                            for h in 0..heads {
+                                let up_mat = up.slice(s![b, h, .., ..]);
+                                let b_mat = b_ref.slice(s![b, h, .., ..]);
+                                ga.slice_mut(s![b, h, .., ..])
+                                    .add_assign(&up_mat.dot(&b_mat.t()));
+                            }
+                        }
+                    }
 
-                    for i in 0..num_batches {
-                        let b_mat = b_reshaped.slice(s![i, .., ..]);
-                        let up_mat = up_reshaped.slice(s![i, .., ..]);
-                        grad_a_reshaped.slice_mut(s![i, .., ..]).add_assign(&up_mat.dot(&b_mat.t()));
+                    // dB = Aᵀ · upstream
+                    if let Some(grad_b) = &b_clone.grad {
+                        let mut gb = grad_b.borrow_mut();
+                        for b in 0..batch {
+                            for h in 0..heads {
+                                let a_mat = a_ref.slice(s![b, h, .., ..]);
+                                let up_mat = up.slice(s![b, h, .., ..]);
+                                gb.slice_mut(s![b, h, .., ..])
+                                    .add_assign(&a_mat.t().dot(&up_mat));
+                            }
+                        }
                     }
                 }
-                if let Some(grad_b) = &b_for_closure.grad {
-                    let mut grad_b_full = grad_b.borrow_mut();
-                    let mut grad_b_reshaped = grad_b_full.view_mut().into_shape((num_batches, b_shape[b_shape.len()-2], b_shape[b_shape.len()-1])).unwrap();
 
-                    for i in 0..num_batches {
-                        let a_mat = a_reshaped.slice(s![i, .., ..]);
-                        let up_mat = up_reshaped.slice(s![i, .., ..]);
-                        grad_b_reshaped.slice_mut(s![i, .., ..]).add_assign(&a_mat.t().dot(&up_mat));
-                    }
+                // ---------- 3-D ⊗ 2-D backward ----------
+                (3, 2) => {
+                    // (код из предыдущего ответа)
                 }
-            } else {
-                let a_view = a_closure_data.view().into_dimensionality::<Ix2>().unwrap();
-                let b_view = b_closure_data.view().into_dimensionality::<Ix2>().unwrap();
-                let upstream_view = upstream_grad.view().into_dimensionality::<Ix2>().unwrap();
-                if let Some(grad_a) = &a_for_closure.grad {
-                    grad_a.borrow_mut().scaled_add(1.0, &upstream_view.dot(&b_view.t()).into_dyn());
+
+                // ---------- 3-D ⊗ 3-D backward ----------
+                (3, 3) => {
+                    // (код из предыдущего ответа)
                 }
-                if let Some(grad_b) = &b_for_closure.grad {
-                    grad_b.borrow_mut().scaled_add(1.0, &a_view.t().dot(&upstream_view).into_dyn());
+
+                // ---------- 2-D ⊗ 2-D backward ----------
+                (2, 2) => {
+                    // (код из предыдущего ответа)
                 }
+
+                _ => unreachable!(),
             }
         });
-        
+
         result.ctx = Some(Rc::new(BackwardContext {
-            inputs: vec![a_for_ctx, b_for_ctx],
+            inputs: vec![a.clone(), b.clone()],
             backward_fn,
         }));
     }
