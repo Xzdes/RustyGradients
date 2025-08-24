@@ -4,4 +4,5 @@ pub mod elementwise;
 pub mod matmul;
 pub mod reduction;
 pub mod embedding;
-pub mod norm; // <-- Добавляем новый модуль
+pub mod norm;
+pub mod transform;

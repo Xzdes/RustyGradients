@@ -4,10 +4,8 @@ pub mod module;
 pub mod activations;
 pub mod containers;
 pub mod embedding;
-pub mod norm; // <-- Раскомментируем эту строку
-
-// -- Оставляем этот модуль закомментированным --
-// pub mod attention;
+pub mod norm;
+pub mod attention;
 
 
 // Ре-экспортируем самые важные структуры.
@@ -16,4 +14,5 @@ pub use linear::Linear;
 pub use activations::{ReLU, Sigmoid};
 pub use containers::Sequential;
 pub use embedding::Embedding;
-pub use norm::LayerNorm; // <-- Добавляем LayerNorm в публичный экспорт
+pub use norm::LayerNorm;
+pub use attention::MultiHeadAttention;

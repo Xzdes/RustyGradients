@@ -85,11 +85,27 @@ impl Tensor {
         crate::ops::embedding::embedding_op(self, weights)
     }
 
-    // --- НОВЫЙ МЕТОД ---
-    /// Выполняет операцию Layer Normalization.
     pub fn layer_norm(&self, gamma: &Tensor, beta: &Tensor, epsilon: f32) -> Tensor {
         crate::ops::norm::layernorm_op(self, gamma, beta, epsilon)
     }
+    
+    // --- НОВЫЕ МЕТОДЫ ---
+    
+    /// Применяет функцию Softmax к последней оси тензора.
+    pub fn softmax(&self) -> Tensor {
+        crate::ops::elementwise::softmax_op(self)
+    }
+
+    /// Транспонирует тензор, меняя местами две заданные оси.
+    pub fn transpose(&self, axis1: usize, axis2: usize) -> Tensor {
+        crate::ops::transform::transpose_op(self, axis1, axis2)
+    }
+
+    /// Изменяет форму тензора.
+    pub fn reshape(&self, new_shape: Vec<usize>) -> Tensor {
+        crate::ops::transform::reshape_op(self, new_shape)
+    }
+
 
     pub fn backward(&self) {
         autograd::backward(self);
