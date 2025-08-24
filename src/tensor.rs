@@ -58,11 +58,8 @@ impl Tensor {
     }
 
     pub fn sub(&self, other: &Tensor) -> Tensor {
-        // --- ИСПРАВЛЕНИЕ: Удаляем ненужный импорт `use std::ops::Sub;` ---
         self - other
     }
-
-
 
     pub fn powf(&self, power: f32) -> Tensor {
         crate::ops::elementwise::powf_op(self, power)
@@ -74,6 +71,12 @@ impl Tensor {
     
     pub fn relu(&self) -> Tensor {
         crate::ops::elementwise::relu_op(self)
+    }
+
+    // --- НОВЫЙ МЕТОД ---
+    /// Применяет функцию активации Sigmoid к каждому элементу тензора.
+    pub fn sigmoid(&self) -> Tensor {
+        crate::ops::elementwise::sigmoid_op(self)
     }
 
     pub fn backward(&self) {

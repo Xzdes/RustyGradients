@@ -11,8 +11,8 @@ pub mod containers;
 
 
 // Ре-экспортируем самые важные структуры, чтобы можно было писать
-// `use slmrustai::nn::{Module, Linear, ReLU, Sequential};` вместо длинных путей.
+// `use slmrustai::nn::{Module, Linear, ReLU, Sequential, Sigmoid};` вместо длинных путей.
 pub use module::Module;
 pub use linear::Linear;
-pub use activations::ReLU;
+pub use activations::{ReLU, Sigmoid}; // <-- Добавляем Sigmoid сюда
 pub use containers::Sequential;
