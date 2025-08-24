@@ -1,6 +1,5 @@
 // src/ops/basic_ops.rs
-// Реализация Add, Sub, Mul для тензоров
-// С корректной поддержкой broadcast и автоматическим дифференцированием
+// Add, Sub, Mul с корректным broadcasting и backward
 
 use crate::core::autograd::BackwardContext;
 use crate::tensor::Tensor;
@@ -8,27 +7,42 @@ use ndarray::{Axis, ArrayD};
 use std::ops::{Add, Sub, Mul};
 use std::rc::Rc;
 
-/// Уменьшает градиент `upstream` до формы `target_shape`
-/// путём суммирования по лишним осям (broadcasting).
-fn reduce_grad(upstream: &ArrayD<f32>, target_shape: &[usize]) -> ArrayD<f32> {
-    let mut current = upstream.clone();
-    // Пока размерность больше целевой
-    while current.ndim() > target_shape.len() {
-        current = current.sum_axis(Axis(0));
-    }
-    // Сводим оставшиеся оси, если нужно
-    for axis in 0..current.ndim() {
-        if current.shape()[axis] != target_shape[axis] {
-            current = current.sum_axis(Axis(axis));
+/// Сводит градиент `upstream` к форме `target_shape`
+/// согласно правилам NumPy broadcasting (правые оси).
+fn reduce_grad(upstream: &ArrayD<f32>, target: &[usize]) -> ArrayD<f32> {
+    // Клонируем, чтобы не было заимствований
+    let mut out = upstream.clone();
+
+    // Проходим с конца (правые оси)
+    for axis in (0..out.ndim()).rev() {
+        // Если ось выходит за пределы target — сводим полностью
+        if axis >= target.len() {
+            out = out.sum_axis(Axis(axis));
+            continue;
+        }
+        let tgt_len = target[axis];
+        let cur_len = out.shape()[axis];
+        if cur_len != tgt_len {
+            if tgt_len == 1 {
+                // Broadcasting: сводим
+                out = out.sum_axis(Axis(axis));
+            } else {
+                panic!(
+                    "reduce_grad: incompatible shapes {:?} -> {:?}",
+                    upstream.shape(),
+                    target
+                );
+            }
         }
     }
-    // Приводим к точной форме
-    if current.shape() != target_shape {
-        current = current
-            .into_shape_with_order(target_shape.to_vec())
-            .expect("reduce_grad: incompatible shapes");
+
+    // Финальный reshape
+    if out.shape() != target {
+        out = out
+            .into_shape_with_order(target.to_vec())
+            .expect("reduce_grad: final reshape failed");
     }
-    current
+    out
 }
 
 // ------------------ Add ------------------
