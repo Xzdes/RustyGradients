@@ -1,75 +1,49 @@
-use slmrustai::losses::bce_loss;
-use slmrustai::nn::{Linear, Module, ReLU, Sequential, Sigmoid};
-use slmrustai::optim::{Adam, Optimizer};
+use slmrustai::nn::{Embedding, Module};
 use slmrustai::tensor::Tensor;
 
 fn main() {
-    println!("--- Решаем задачу XOR с помощью BCE Loss и тюнинга гиперпараметров ---");
+    println!("--- Тестируем слой Embedding ---");
 
-    // 1. Создаем модель (без изменений)
-    let model = Sequential::new(vec![
-        Box::new(Linear::new(2, 4)),
-        Box::new(ReLU::new()),
-        Box::new(Linear::new(4, 1)),
-        Box::new(Sigmoid::new()),
-    ]);
+    // Параметры
+    let vocab_size = 10;    // Размер словаря (10 уникальных слов)
+    let embedding_dim = 4;  // Размерность вектора для каждого слова
+    let batch_size = 2;     // Два предложения в батче
+    let seq_len = 3;        // По три слова в каждом предложении
 
-    // 2. --- ИЗМЕНЕНИЕ: Увеличиваем скорость обучения ---
-    //    Сделаем шаги оптимизатора более "смелыми".
-    let mut optimizer = Adam::new(model.parameters(), 0.1, None, None); // Было 0.01, стало 0.1
+    // 1. Создаем слой Embedding
+    let embedding_layer = Embedding::new(vocab_size, embedding_dim);
+    println!("Матрица весов Embedding (до backward):");
+    // .parameters() возвращает Vec<Tensor>, берем первый (и единственный) элемент
+    println!("{:?}", embedding_layer.parameters()[0]);
 
-    // 3. Данные для обучения (XOR) (без изменений)
-    let x_data = ndarray::array![
-        [0.0, 0.0],
-        [1.0, 0.0],
-        [0.0, 1.0],
-        [1.0, 1.0]
-    ]
-    .into_dyn();
-    let x = Tensor::new(x_data, false);
-
-    let y_true_data = ndarray::array![[0.0], [1.0], [1.0], [0.0]].into_dyn();
-    let y_true = Tensor::new(y_true_data, false);
-
-    // 4. Тренировочный цикл (можно даже уменьшить количество эпох)
-    println!("\n--- Старт обучения ---");
-    for epoch in 1..=1000 {
-        // Прямой проход
-        let y_pred = model.forward(&x);
-
-        // Используем `bce_loss`
-        let loss = bce_loss(&y_pred, &y_true);
-
-        // Печатаем ошибку
-        if epoch % 200 == 0 || epoch == 1 {
-            println!(
-                "Эпоха: {}, Ошибка (BCE Loss): {:?}",
-                epoch,
-                loss.data.borrow()
-            );
-        }
-
-        // Обнуляем градиенты
-        optimizer.zero_grad();
-        
-        // Обратное распространение ошибки
-        loss.backward();
-
-        // Шаг оптимизатора
-        optimizer.step();
-    }
+    // 2. Создаем входные данные - батч с ID токенов.
+    // Это два "предложения": [1, 5, 0] и [8, 3, 5]
+    let input_ids_data = ndarray::array![
+        [1.0, 5.0, 0.0],
+        [8.0, 3.0, 5.0]
+    ].into_dyn();
+    // Входные ID не требуют градиента
+    let input_ids = Tensor::new(input_ids_data, false);
     
-    println!("\n--- Тренировка завершена ---");
-    println!("\nФинальные предсказания модели для входов:");
-    println!("{:?}", x.data.borrow());
-    
-    let final_preds = model.forward(&x);
-    println!("\nПредсказанные значения (вероятности):");
-    println!("{:?}", final_preds.data.borrow());
-    
-    println!("\nПредсказанные значения (округленные до 0 или 1):");
-    println!("{:?}", final_preds.data.borrow().mapv(|val| val.round()));
+    println!("\nВходные ID токенов (форма [{}, {}]):", batch_size, seq_len);
+    println!("{:?}", input_ids.data.borrow());
 
-    println!("\nИстинные значения:");
-    println!("{:?}", y_true.data.borrow());
+    // 3. Прямой проход
+    let output = embedding_layer.forward(&input_ids);
+
+    println!("\nВыход Embedding слоя (форма [{}, {}, {}]):", batch_size, seq_len, embedding_dim);
+    println!("{:?}", output.data.borrow());
+
+    // 4. Обратный проход
+    // Чтобы проверить градиенты, мы вызовем backward() на выходе.
+    // Это сымитирует приход градиента от последующих слоев сети.
+    println!("\n--- Запускаем backward() на выходе ---");
+    output.backward();
+
+    println!("\nМатрица весов Embedding (после backward):");
+    println!("{:?}", embedding_layer.parameters()[0]);
+    
+    println!("\nПроверка: градиент должен появиться только у тех строк,");
+    println!("которые соответствуют ID во входных данных (0, 1, 3, 5, 8).");
+    println!("Причем у строки 5 градиент должен быть вдвое больше, так как ID 5 встречался дважды.");
 }

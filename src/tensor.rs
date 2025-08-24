@@ -57,8 +57,6 @@ impl Tensor {
         crate::ops::matmul::dot_op(self, other)
     }
 
-
-
     pub fn sub(&self, other: &Tensor) -> Tensor {
         self - other
     }
@@ -83,6 +81,13 @@ impl Tensor {
         crate::ops::elementwise::log_op(self)
     }
 
+    // --- НОВЫЙ МЕТОД ---
+    /// Выполняет операцию Embedding, используя текущий тензор как `ids`,
+    /// а `weights` как таблицу для выборки.
+    pub fn embedding(&self, weights: &Tensor) -> Tensor {
+        crate::ops::embedding::embedding_op(self, weights)
+    }
+
     pub fn backward(&self) {
         autograd::backward(self);
     }
@@ -94,7 +99,6 @@ impl fmt::Debug for Tensor {
         let grad_str = if let Some(grad) = &self.grad {
             format!("\n  grad: \n{}", grad.borrow())
         } else {
-            // --- ИСПРАВЛЕНИЕ: `to-string()` заменено на `to_string()` ---
             "  grad: None".to_string()
         };
 
