@@ -58,9 +58,7 @@ impl Tensor {
     }
 
     pub fn sub(&self, other: &Tensor) -> Tensor {
-        // --- ИСПРАВЛЕНИЕ: Удаляем ненужный импорт `use std::ops::Sub;` ---
-        // Трейт уже реализован в `ops::basic_ops`, и Rust его "видит"
-        // без явного импорта в месте вызова.
+        use std::ops::Sub;
         self - other
     }
 
@@ -70,6 +68,12 @@ impl Tensor {
 
     pub fn sum(&self) -> Tensor {
         crate::ops::reduction::sum_op(self)
+    }
+    
+    // --- НОВЫЙ МЕТОД ---
+    /// Применяет функцию активации ReLU к каждому элементу тензора.
+    pub fn relu(&self) -> Tensor {
+        crate::ops::elementwise::relu_op(self)
     }
 
     pub fn backward(&self) {
