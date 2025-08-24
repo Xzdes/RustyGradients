@@ -1,5 +1,6 @@
 // src/ops/basic_ops.rs
 // Add, Sub, Mul с корректным broadcasting и backward
+// Без E0506
 
 use crate::core::autograd::BackwardContext;
 use crate::tensor::Tensor;
@@ -7,42 +8,41 @@ use ndarray::{Axis, ArrayD};
 use std::ops::{Add, Sub, Mul};
 use std::rc::Rc;
 
-/// Сводит градиент `upstream` к форме `target_shape`
-/// согласно правилам NumPy broadcasting (правые оси).
+/// Сводит градиент `upstream` к `target_shape` по правилам NumPy broadcasting.
+/// Суммируем по осям, где `target_shape == 1`.
 fn reduce_grad(upstream: &ArrayD<f32>, target: &[usize]) -> ArrayD<f32> {
-    // Клонируем, чтобы не было заимствований
-    let mut out = upstream.clone();
+    let mut current = upstream.clone();
+    let tgt_len = target.len();
+    let cur_len = current.ndim();
 
-    // Проходим с конца (правые оси)
-    for axis in (0..out.ndim()).rev() {
-        // Если ось выходит за пределы target — сводим полностью
-        if axis >= target.len() {
-            out = out.sum_axis(Axis(axis));
-            continue;
-        }
-        let tgt_len = target[axis];
-        let cur_len = out.shape()[axis];
-        if cur_len != tgt_len {
-            if tgt_len == 1 {
-                // Broadcasting: сводим
-                out = out.sum_axis(Axis(axis));
+    // Сводим лишние оси (слева)
+    for axis in 0..(cur_len - tgt_len) {
+        current = current.sum_axis(Axis(0));
+    }
+
+    // Теперь обрабатываем оставшиеся оси
+    let cur_shape = current.shape().to_vec();
+    for (axis, (&cur_len_axis, &tgt_len_axis)) in cur_shape
+        .iter()
+        .zip(target.iter())
+        .enumerate()
+    {
+        if cur_len_axis != tgt_len_axis {
+            if tgt_len_axis == 1 {
+                current = current.sum_axis(Axis(axis));
             } else {
-                panic!(
-                    "reduce_grad: incompatible shapes {:?} -> {:?}",
-                    upstream.shape(),
-                    target
-                );
+                panic!("reduce_grad: incompatible shapes {:?} -> {:?}", cur_shape, target);
             }
         }
     }
 
     // Финальный reshape
-    if out.shape() != target {
-        out = out
+    if current.shape() != target {
+        current = current
             .into_shape_with_order(target.to_vec())
             .expect("reduce_grad: final reshape failed");
     }
-    out
+    current
 }
 
 // ------------------ Add ------------------
