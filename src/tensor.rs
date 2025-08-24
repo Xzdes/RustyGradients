@@ -57,6 +57,8 @@ impl Tensor {
         crate::ops::matmul::dot_op(self, other)
     }
 
+
+
     pub fn sub(&self, other: &Tensor) -> Tensor {
         self - other
     }
@@ -72,11 +74,13 @@ impl Tensor {
     pub fn relu(&self) -> Tensor {
         crate::ops::elementwise::relu_op(self)
     }
-
-    // --- НОВЫЙ МЕТОД ---
-    /// Применяет функцию активации Sigmoid к каждому элементу тензора.
+    
     pub fn sigmoid(&self) -> Tensor {
         crate::ops::elementwise::sigmoid_op(self)
+    }
+
+    pub fn log(&self) -> Tensor {
+        crate::ops::elementwise::log_op(self)
     }
 
     pub fn backward(&self) {
@@ -90,6 +94,7 @@ impl fmt::Debug for Tensor {
         let grad_str = if let Some(grad) = &self.grad {
             format!("\n  grad: \n{}", grad.borrow())
         } else {
+            // --- ИСПРАВЛЕНИЕ: `to-string()` заменено на `to_string()` ---
             "  grad: None".to_string()
         };
 

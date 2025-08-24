@@ -1,11 +1,10 @@
-// Импортируем нашу новую функцию потерь.
-use slmrustai::losses::mse_loss;
+use slmrustai::losses::bce_loss;
 use slmrustai::nn::{Linear, Module, ReLU, Sequential, Sigmoid};
 use slmrustai::optim::{Adam, Optimizer};
 use slmrustai::tensor::Tensor;
 
 fn main() {
-    println!("--- Решаем задачу XOR с помощью Adam и модуля losses ---");
+    println!("--- Решаем задачу XOR с помощью BCE Loss и тюнинга гиперпараметров ---");
 
     // 1. Создаем модель (без изменений)
     let model = Sequential::new(vec![
@@ -15,8 +14,9 @@ fn main() {
         Box::new(Sigmoid::new()),
     ]);
 
-    // 2. Создаем оптимизатор Adam (без изменений)
-    let mut optimizer = Adam::new(model.parameters(), 0.01, None, None);
+    // 2. --- ИЗМЕНЕНИЕ: Увеличиваем скорость обучения ---
+    //    Сделаем шаги оптимизатора более "смелыми".
+    let mut optimizer = Adam::new(model.parameters(), 0.1, None, None); // Было 0.01, стало 0.1
 
     // 3. Данные для обучения (XOR) (без изменений)
     let x_data = ndarray::array![
@@ -31,19 +31,19 @@ fn main() {
     let y_true_data = ndarray::array![[0.0], [1.0], [1.0], [0.0]].into_dyn();
     let y_true = Tensor::new(y_true_data, false);
 
-    // 4. Тренировочный цикл
+    // 4. Тренировочный цикл (можно даже уменьшить количество эпох)
     println!("\n--- Старт обучения ---");
     for epoch in 1..=1000 {
         // Прямой проход
         let y_pred = model.forward(&x);
 
-        // --- ИЗМЕНЕНИЕ: Используем функцию `mse_loss` ---
-        let loss = mse_loss(&y_pred, &y_true);
+        // Используем `bce_loss`
+        let loss = bce_loss(&y_pred, &y_true);
 
         // Печатаем ошибку
         if epoch % 200 == 0 || epoch == 1 {
             println!(
-                "Эпоха: {}, Ошибка (Loss): {:?}",
+                "Эпоха: {}, Ошибка (BCE Loss): {:?}",
                 epoch,
                 loss.data.borrow()
             );

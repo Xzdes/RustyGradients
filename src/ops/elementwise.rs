@@ -8,7 +8,6 @@ pub fn powf_op(a: &Tensor, power: f32) -> Tensor {
     let mut result = Tensor::new(result_data, a.grad.is_some());
 
     if a.grad.is_some() {
-        // --- ИСПРАВЛЕНИЕ: Создаем два клона для контекста и замыкания ---
         let a_for_ctx = a.clone();
         let a_for_closure = a.clone();
 
@@ -34,7 +33,6 @@ pub fn relu_op(a: &Tensor) -> Tensor {
     let mut result = Tensor::new(result_data, a.grad.is_some());
 
     if a.grad.is_some() {
-        // --- ИСПРАВЛЕНИЕ: Создаем два клона для контекста и замыкания ---
         let a_for_ctx = a.clone();
         let a_for_closure = a.clone();
 
@@ -60,7 +58,6 @@ pub fn sigmoid_op(a: &Tensor) -> Tensor {
     let mut result = Tensor::new(result_data, a.grad.is_some());
 
     if a.grad.is_some() {
-        // --- ИСПРАВЛЕНИЕ: Создаем два клона для контекста и замыкания ---
         let a_for_ctx = a.clone();
         let a_for_closure = a.clone();
         let result_for_closure = result.clone();
@@ -68,6 +65,36 @@ pub fn sigmoid_op(a: &Tensor) -> Tensor {
         let backward_fn = Box::new(move |upstream_grad: &ndarray::ArrayD<f32>| {
             let result_data = result_for_closure.data.borrow();
             let derivative = &*result_data * &(1.0 - &*result_data);
+            if let Some(grad_a) = &a_for_closure.grad {
+                *grad_a.borrow_mut() += &(upstream_grad * &derivative);
+            }
+        });
+
+        result.ctx = Some(Rc::new(BackwardContext {
+            inputs: vec![a_for_ctx],
+            backward_fn,
+        }));
+    }
+    result
+}
+
+// --- НОВАЯ ФУНКЦИЯ: Натуральный логарифм ---
+
+/// Реализация операции натурального логарифма (ln).
+pub fn log_op(a: &Tensor) -> Tensor {
+    // Для численной стабильности добавляем очень малое число, чтобы избежать log(0).
+    const EPSILON: f32 = 1e-8;
+    let result_data = a.data.borrow().mapv(|val| (val + EPSILON).ln());
+    let mut result = Tensor::new(result_data, a.grad.is_some());
+
+    if a.grad.is_some() {
+        let a_for_ctx = a.clone();
+        let a_for_closure = a.clone();
+
+        let backward_fn = Box::new(move |upstream_grad: &ndarray::ArrayD<f32>| {
+            // Обратный проход: производная log(x) равна 1/x.
+            let a_data = a_for_closure.data.borrow();
+            let derivative = 1.0 / (&*a_data + EPSILON);
             if let Some(grad_a) = &a_for_closure.grad {
                 *grad_a.borrow_mut() += &(upstream_grad * &derivative);
             }
