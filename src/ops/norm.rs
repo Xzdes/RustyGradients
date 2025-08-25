@@ -1,93 +1,116 @@
 use crate::core::autograd::BackwardContext;
 use crate::tensor::Tensor;
-// --- ИСПРАВЛЕНИЕ: Удаляем Order, он нам не нужен в импортах ---
-use ndarray::{ArrayD, Axis, Ix2};
+use ndarray::{ArrayD, Axis};
 use std::rc::Rc;
 
 /// Выполняет операцию Layer Normalization.
+/// Эта версия является обобщенной и работает с тензорами любой размерности (2D, 3D, ...),
+/// выполняя нормализацию вдоль последней оси.
 pub fn layernorm_op(x: &Tensor, gamma: &Tensor, beta: &Tensor, epsilon: f32) -> Tensor {
     let x_data = x.data.borrow();
     let gamma_data = gamma.data.borrow();
     let beta_data = beta.data.borrow();
 
+    // Определяем последнюю ось для нормализации
+    let last_axis = x_data.ndim() - 1;
+    let axis = Axis(last_axis);
+    let n_features = x_data.shape()[last_axis] as f32;
+
     // --- Прямой проход ---
-    let mean = x_data.mean_axis(Axis(1)).unwrap();
-    // --- ИСПРАВЛЕНИЕ: Убираем второй аргумент `Order::C` ---
-    let mean_reshaped = mean
-        .into_shape_with_order((x_data.shape()[0], 1))
-        .unwrap();
+
+    // 1. Вычисляем среднее и "расширяем" его для broadcasting'а
+    let mean = x_data.mean_axis(axis).unwrap();
+    let mean_reshaped = mean.insert_axis(axis); // [B, S] -> [B, S, 1]
 
     let x_minus_mean = &*x_data - &mean_reshaped;
 
-    let variance = x_minus_mean.mapv(|v| v.powi(2)).mean_axis(Axis(1)).unwrap();
-    // --- ИСПРАВЛЕНИЕ: Убираем второй аргумент `Order::C` ---
-    let variance_reshaped = variance
-        .clone()
-        .into_shape_with_order((x_data.shape()[0], 1))
-        .unwrap();
+    // 2. Вычисляем дисперсию и "расширяем" ее
+    let variance = x_minus_mean.mapv(|v| v.powi(2)).mean_axis(axis).unwrap();
+    let variance_reshaped = variance.insert_axis(axis);
 
-    let std_dev = (variance_reshaped + epsilon).mapv(f32::sqrt);
-    
-    let x_normalized = &x_minus_mean / &std_dev;
+    // 3. Нормализуем
+    let std_dev_inv = (&variance_reshaped + epsilon).mapv(f32::sqrt).mapv(|v| 1.0 / v);
+    let x_normalized = &x_minus_mean * &std_dev_inv;
 
+    // 4. Масштабируем и сдвигаем
     let result_data = &x_normalized * &*gamma_data + &*beta_data;
-    
+
     let requires_grad = x.grad.is_some() || gamma.grad.is_some() || beta.grad.is_some();
-    let mut result = Tensor::new(result_data.into_dyn(), requires_grad);
+    let mut result = Tensor::new(result_data, requires_grad);
 
     // --- Обратный проход ---
     if requires_grad {
-        let x_for_ctx = x.clone();
-        let gamma_for_ctx = gamma.clone();
-        let beta_for_ctx = beta.clone();
-        
+        // --- ИСПРАВЛЕНИЕ: Создаем отдельные клоны для замыкания и для `inputs` ---
+        let x_for_inputs = x.clone();
+        let gamma_for_inputs = gamma.clone();
+        let beta_for_inputs = beta.clone();
+
         let x_for_closure = x.clone();
         let gamma_for_closure = gamma.clone();
         let beta_for_closure = beta.clone();
+        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
-        let x_norm_for_closure = Tensor::new(x_normalized.into_dyn(), false);
-        let std_inv_for_closure = Tensor::new((1.0 / &std_dev).into_dyn(), false);
-        
+        let x_minus_mean_for_closure = Tensor::new(x_minus_mean, false);
+        let x_norm_for_closure = Tensor::new(x_normalized, false);
+        let std_dev_inv_for_closure = Tensor::new(std_dev_inv, false);
+
         let backward_fn = Box::new(move |upstream_grad: &ArrayD<f32>| {
-            let n_features = x_for_closure.data.borrow().shape()[1] as f32;
-            let upstream_grad_2d = upstream_grad.view().into_dimensionality::<Ix2>().unwrap();
-            
+            // --- ИСПРАВЛЕНИЕ: Используем переменные `*_for_closure` ---
             let gamma_data_closure = gamma_for_closure.data.borrow();
             let x_norm_data_closure = x_norm_for_closure.data.borrow();
-            let std_inv_data_closure = std_inv_for_closure.data.borrow();
-            let x_data_closure = x_for_closure.data.borrow();
+            let x_minus_mean_data_closure = x_minus_mean_for_closure.data.borrow();
+            let std_dev_inv_data_closure = std_dev_inv_for_closure.data.borrow();
+
+            // Оси, по которым нужно суммировать для получения градиентов gamma и beta
+            // --- ИСПРАВЛЕНИЕ: Убираем `mut` ---
+            let reduction_axes: Vec<usize> = (0..upstream_grad.ndim() - 1).collect();
 
             // Градиенты для gamma и beta
             if let Some(gamma_grad) = &gamma_for_closure.grad {
-                let dgamma = (upstream_grad * &*x_norm_data_closure).sum_axis(Axis(0));
+                // --- ИСПРАВЛЕНИЕ: Убираем ненужные скобки ---
+                let mut dgamma = upstream_grad * &*x_norm_data_closure;
+                // Суммируем по всем осям, кроме последней
+                for &axis_idx in reduction_axes.iter().rev() {
+                    dgamma = dgamma.sum_axis(Axis(axis_idx));
+                }
                 gamma_grad.borrow_mut().scaled_add(1.0, &dgamma.into_dyn());
             }
             if let Some(beta_grad) = &beta_for_closure.grad {
-                let dbeta = upstream_grad.sum_axis(Axis(0));
+                let mut dbeta = upstream_grad.clone();
+                for &axis_idx in reduction_axes.iter().rev() {
+                    dbeta = dbeta.sum_axis(Axis(axis_idx));
+                }
                 beta_grad.borrow_mut().scaled_add(1.0, &dbeta.into_dyn());
             }
 
             // Градиент для x
             if let Some(x_grad) = &x_for_closure.grad {
-                let d_x_norm = &upstream_grad_2d * &*gamma_data_closure;
-                
-                // --- ИСПРАВЛЕНИЕ: Убираем второй аргумент `Order::C` во всех местах ---
-                let d_variance = (&d_x_norm * &*x_data_closure * -0.5 * &std_inv_data_closure.mapv(|v| v.powi(3)))
-                    .sum_axis(Axis(1))
-                    .into_shape_with_order((x_data_closure.shape()[0], 1))
-                    .unwrap();
-                
-                let d_mean = (&d_x_norm * -1.0 * &*std_inv_data_closure).sum_axis(Axis(1)).into_shape_with_order((x_data_closure.shape()[0], 1)).unwrap() -
-                            (2.0 * &d_variance / n_features) * &x_data_closure.sum_axis(Axis(1)).into_shape_with_order((x_data_closure.shape()[0], 1)).unwrap();
-                
-                let dx = &d_x_norm * &*std_inv_data_closure + (2.0 / n_features) * &*x_data_closure * &d_variance + (1.0 / n_features) * &d_mean;
+                let last_axis_bw = upstream_grad.ndim() - 1;
+                let axis_bw = Axis(last_axis_bw);
 
-                x_grad.borrow_mut().scaled_add(1.0, &dx.into_dyn());
+                let d_x_norm = upstream_grad * &*gamma_data_closure;
+
+                let d_std_dev_inv = (&d_x_norm * &*x_minus_mean_data_closure).sum_axis(axis_bw);
+                let d_std_dev_inv_reshaped = d_std_dev_inv.insert_axis(axis_bw);
+
+                let d_variance = &d_std_dev_inv_reshaped * -0.5 * &std_dev_inv_data_closure.mapv(|v| v.powi(3));
+
+                let d_x_minus_mean_part1 = &d_x_norm * &*std_dev_inv_data_closure;
+                let d_x_minus_mean_part2 = &d_variance * (2.0 / n_features) * &*x_minus_mean_data_closure;
+
+                let d_x_minus_mean = &d_x_minus_mean_part1 + &d_x_minus_mean_part2;
+
+                let d_mean = -d_x_minus_mean.sum_axis(axis_bw).insert_axis(axis_bw);
+
+                let dx = d_x_minus_mean + (1.0 / n_features) * d_mean;
+
+                x_grad.borrow_mut().scaled_add(1.0, &dx);
             }
         });
 
         result.ctx = Some(Rc::new(BackwardContext {
-            inputs: vec![x_for_ctx, gamma_for_ctx, beta_for_ctx],
+            // --- ИСПРАВЛЕНИЕ: Используем переменные `*_for_inputs` ---
+            inputs: vec![x_for_inputs, gamma_for_inputs, beta_for_inputs],
             backward_fn,
         }));
     }

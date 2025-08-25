@@ -7,7 +7,7 @@ pub mod embedding;
 pub mod norm;
 pub mod attention;
 pub mod feedforward;
-
+pub mod transformer;
 
 // Ре-экспортируем самые важные структуры.
 pub use module::Module;
@@ -18,3 +18,4 @@ pub use embedding::Embedding;
 pub use norm::LayerNorm;
 pub use attention::MultiHeadAttention;
 pub use feedforward::FeedForward;
+pub use transformer::TransformerBlock;
