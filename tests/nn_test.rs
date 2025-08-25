@@ -3,7 +3,6 @@
 // Подключаем наш общий модуль
 mod common;
 
-// --- ИСПРАВЛЕНИЕ: Используем новое имя крейта ---
 use rusty_gradients::nn::{FeedForward, Linear, Module, MultiHeadAttention, ReLU, TransformerBlock};
 use rusty_gradients::tensor::Tensor;
 
@@ -22,7 +21,8 @@ fn test_linear_layer_backward() {
     );
 
     // 2. Act (Действие)
-    let output = linear_layer.forward(&input);
+    // --- ИЗМЕНЕНИЕ: "Распаковываем" Result, так как в тесте мы ожидаем успеха ---
+    let output = linear_layer.forward(&input).unwrap();
     let loss = output.sum(); // Простейшая функция потерь для теста
     loss.backward();
 
@@ -40,7 +40,8 @@ fn test_relu_layer_backward() {
     let input = Tensor::new(input_data, true);
 
     // 2. Act
-    let output = relu_layer.forward(&input);
+    // --- ИЗМЕНЕНИЕ: "Распаковываем" Result ---
+    let output = relu_layer.forward(&input).unwrap();
     let loss = output.sum();
     loss.backward();
 
@@ -68,7 +69,8 @@ fn test_mha_layer_backward() {
     let input = Tensor::new(ArrayD::random(input_shape, Uniform::new(-1.0, 1.0)), true);
 
     // 2. Act
-    let output = mha.forward(&input);
+    // --- ИЗМЕНЕНИЕ: "Распаковываем" Result ---
+    let output = mha.forward(&input).unwrap();
     let loss = output.sum();
     loss.backward();
 
@@ -90,7 +92,8 @@ fn test_feedforward_layer_backward() {
     let input = Tensor::new(ArrayD::random(input_shape, Uniform::new(-1.0, 1.0)), true);
 
     // 2. Act
-    let output = ff_layer.forward(&input);
+    // --- ИЗМЕНЕНИЕ: "Распаковываем" Result ---
+    let output = ff_layer.forward(&input).unwrap();
     let loss = output.sum();
     loss.backward();
 
@@ -99,7 +102,6 @@ fn test_feedforward_layer_backward() {
     common::check_input_grad(&input, "FeedForward Layer Input");
 }
 
-// --- НОВЫЙ ТЕСТ ---
 #[test]
 fn test_transformer_block_backward() {
     // 1. Arrange
@@ -114,7 +116,8 @@ fn test_transformer_block_backward() {
     let input = Tensor::new(ArrayD::random(input_shape, Uniform::new(-1.0, 1.0)), true);
 
     // 2. Act
-    let output = block.forward(&input);
+    // --- ИЗМЕНЕНИЕ: "Распаковываем" Result ---
+    let output = block.forward(&input).unwrap();
     let loss = output.sum();
     loss.backward();
 

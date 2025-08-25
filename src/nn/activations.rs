@@ -1,7 +1,13 @@
+//! Модуль, содержащий слои-активации, такие как ReLU и Sigmoid.
+
 use crate::nn::module::Module;
 use crate::tensor::Tensor;
+// --- ИЗМЕНЕНИЕ: Импортируем наш Result ---
+use crate::error::Result;
 
 /// Слой активации ReLU (Rectified Linear Unit).
+///
+/// Применяет поэлементную функцию `max(0, x)`.
 /// Этот слой не имеет обучаемых параметров.
 pub struct ReLU;
 
@@ -20,9 +26,13 @@ impl Default for ReLU {
 
 impl Module for ReLU {
     /// Прямой проход просто вызывает математическую операцию ReLU.
-    fn forward(&self, inputs: &Tensor) -> Tensor {
+    // --- ИЗМЕНЕНИЕ: Сигнатура функции обновлена ---
+    fn forward(&self, inputs: &Tensor) -> Result<Tensor> {
         // Мы уже добавили метод .relu() в Tensor.
-        inputs.relu()
+        // Поскольку `relu_op` пока не возвращает Result, мы оборачиваем
+        // результат в `Ok()`, чтобы соответствовать новому трейту.
+        // --- ИЗМЕНЕНИЕ: Результат обернут в Ok() ---
+        Ok(inputs.relu())
     }
 
     /// ReLU не имеет обучаемых параметров, поэтому возвращаем пустой вектор.
@@ -34,8 +44,10 @@ impl Module for ReLU {
 // --- НОВЫЙ СЛОЙ: Sigmoid ---
 
 /// Слой активации Sigmoid.
+///
 /// "Сжимает" входные значения в диапазон (0, 1), что полезно для
 /// интерпретации выходов как вероятностей.
+/// Применяет поэлементную функцию `1 / (1 + e^(-x))`.
 pub struct Sigmoid;
 
 impl Sigmoid {
@@ -53,9 +65,10 @@ impl Default for Sigmoid {
 
 impl Module for Sigmoid {
     /// Прямой проход вызывает математическую операцию Sigmoid.
-    fn forward(&self, inputs: &Tensor) -> Tensor {
-        // Мы добавим метод .sigmoid() в Tensor на следующем шаге.
-        crate::ops::elementwise::sigmoid_op(inputs)
+    // --- ИЗМЕНЕНИЕ: Сигнатура функции обновлена ---
+    fn forward(&self, inputs: &Tensor) -> Result<Tensor> {
+        // --- ИЗМЕНЕНИЕ: Результат обернут в Ok() ---
+        Ok(crate::ops::elementwise::sigmoid_op(inputs))
     }
 
     /// Sigmoid не имеет обучаемых параметров.

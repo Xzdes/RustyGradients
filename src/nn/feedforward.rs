@@ -1,14 +1,22 @@
-// src/nn/feedforward.rs
+//! Модуль, реализующий слой FeedForward.
 
 use crate::nn::{Linear, Module, ReLU};
 use crate::tensor::Tensor;
+// --- ИЗМЕНЕНИЕ: Импортируем наш Result ---
+use crate::error::Result;
 
 /// Слой FeedForward, стандартный компонент блока Трансформера.
+///
 /// Состоит из двух линейных слоев с активацией ReLU между ними.
-/// FFN(x) = ReLU(x * W1 + b1) * W2 + b2
+/// Этот слой применяется к каждой позиции в последовательности независимо.
+///
+/// Формула: `FFN(x) = ReLU(x * W1 + b1) * W2 + b2`
 pub struct FeedForward {
+    /// Первый линейный слой, расширяющий размерность.
     linear1: Linear,
+    /// Слой активации ReLU.
     relu: ReLU,
+    /// Второй линейный слой, сжимающий размерность обратно к исходной.
     linear2: Linear,
 }
 
@@ -29,11 +37,19 @@ impl FeedForward {
 }
 
 impl Module for FeedForward {
-    /// Прямой проход: Linear -> ReLU -> Linear
-    fn forward(&self, inputs: &Tensor) -> Tensor {
-        let x = self.linear1.forward(inputs);
-        let x = self.relu.forward(&x);
-        self.linear2.forward(&x)
+    /// Прямой проход: `Linear -> ReLU -> Linear`
+    // --- ИЗМЕНЕНИЕ: Сигнатура функции обновлена ---
+    fn forward(&self, inputs: &Tensor) -> Result<Tensor> {
+        // --- ВРЕМЕННАЯ МЕРА: Используем `.unwrap()` ---
+        // Позже, когда все `forward` будут возвращать `Result`,
+        // мы заменим `.unwrap()` на `?`.
+
+        let x = self.linear1.forward(inputs).unwrap();
+        let x = self.relu.forward(&x).unwrap();
+        let final_output = self.linear2.forward(&x).unwrap();
+
+        // --- ИЗМЕНЕНИЕ: Финальный результат оборачивается в Ok() ---
+        Ok(final_output)
     }
 
     /// Собирает параметры из обоих вложенных линейных слоев.

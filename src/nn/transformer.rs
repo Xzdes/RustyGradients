@@ -1,15 +1,28 @@
+//! Модуль, реализующий один блок кодировщика Трансформера.
+
 use crate::nn::{FeedForward, LayerNorm, Module, MultiHeadAttention};
 use crate::tensor::Tensor;
+// --- ИЗМЕНЕНИЕ: Импортируем наш Result ---
+use crate::error::Result;
 use std::ops::Add;
 
 /// Один блок кодировщика Трансформера.
-/// Состоит из:
-/// 1. Слой Multi-Head Attention с LayerNorm и остаточным соединением.
-/// 2. Слой FeedForward с LayerNorm и остаточным соединением.
+///
+/// Этот блок является основной строительной единицей для большинства
+/// современных NLP-моделей. Он состоит из двух основных под-слоев:
+/// 1. Слой Multi-Head Attention, который выполняет self-attention.
+/// 2. Слой FeedForward, который является простой полносвязной сетью.
+///
+/// Вокруг каждого из этих под-слоев применяется LayerNorm и остаточное соединение (`Add`).
+/// Такая архитектура (pre-normalization) стабилизирует обучение глубоких Трансформеров.
 pub struct TransformerBlock {
+    /// Слой многоголового внимания.
     attention: MultiHeadAttention,
+    /// Слой нормализации перед attention.
     norm1: LayerNorm,
+    /// Полносвязная сеть.
     feed_forward: FeedForward,
+    /// Слой нормализации перед feed-forward.
     norm2: LayerNorm,
 }
 
@@ -33,20 +46,30 @@ impl TransformerBlock {
 
 impl Module for TransformerBlock {
     /// Прямой проход через блок Трансформера.
-    fn forward(&self, inputs: &Tensor) -> Tensor {
+    ///
+    /// Логика: `x + Attention(Norm(x))` -> `x + FeedForward(Norm(x))`
+    // --- ИЗМЕНЕНИЕ: Сигнатура функции обновлена ---
+    fn forward(&self, inputs: &Tensor) -> Result<Tensor> {
+        // --- ВРЕМЕННАЯ МЕРА: Используем `.unwrap()` ---
+        // Позже, когда все `forward` будут возвращать `Result`,
+        // мы заменим `.unwrap()` на `?`.
+
         // 1. Под-слой Multi-Head Attention
         // Сначала нормализуем вход, затем пропускаем через attention
-        let attention_output = self.attention.forward(&self.norm1.forward(inputs));
+        let normed_inputs1 = self.norm1.forward(inputs).unwrap();
+        let attention_output = self.attention.forward(&normed_inputs1).unwrap();
         // Первое остаточное соединение (Add)
         let x = inputs.add(&attention_output);
 
         // 2. Под-слой FeedForward
         // Сначала нормализуем результат первого под-слоя, затем пропускаем через FFN
-        let ff_output = self.feed_forward.forward(&self.norm2.forward(&x));
+        let normed_inputs2 = self.norm2.forward(&x).unwrap();
+        let ff_output = self.feed_forward.forward(&normed_inputs2).unwrap();
         // Второе остаточное соединение (Add)
-        let output = x.add(&ff_output);
+        let final_output = x.add(&ff_output);
 
-        output
+        // --- ИЗМЕНЕНИЕ: Финальный результат оборачивается в Ok() ---
+        Ok(final_output)
     }
 
     /// Собирает параметры из всех вложенных модулей.

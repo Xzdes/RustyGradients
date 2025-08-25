@@ -1,15 +1,28 @@
+//! Модуль, реализующий слой нормализации (Layer Normalization).
+
 use crate::nn::module::Module;
 use crate::tensor::Tensor;
+// --- ИЗМЕНЕНИЕ: Импортируем наш Result ---
+use crate::error::Result;
 
-const EPSILON: f32 = 1e-5; // Стандартное значение epsilon для LayerNorm
+/// Малая константа для численной стабильности при делении на стандартное отклонение.
+const EPSILON: f32 = 1e-5;
 
 /// Слой нормализации (Layer Normalization).
 ///
-/// Нормализует активации по оси признаков для каждого элемента в батче.
-/// Имеет два обучаемых параметра: `gamma` (масштаб) и `beta` (сдвиг).
+/// Нормализует активации по оси признаков (последней оси) для каждого элемента в батче.
+/// В отличие от BatchNorm, его вычисления полностью независимы для каждого элемента
+/// в батче, что делает его популярным в моделях обработки последовательностей,
+/// таких как Трансформеры.
+///
+/// Имеет два обучаемых параметра: `gamma` (масштаб) и `beta` (сдвиг), которые позволяют
+/// сети восстановить исходное распределение, если это необходимо.
 pub struct LayerNorm {
+    /// Обучаемый параметр масштабирования (gain). Инициализируется единицами.
     gamma: Tensor,
+    /// Обучаемый параметр сдвига (bias). Инициализируется нулями.
     beta: Tensor,
+    /// Малая константа для избежания деления на ноль.
     epsilon: f32,
 }
 
@@ -19,9 +32,9 @@ impl LayerNorm {
     /// # Аргументы
     ///
     /// * `normalized_shape` - Размерность признаков, по которой происходит нормализация.
-    ///   Например, для Трансформера это `embedding_dim`.
+    ///   Например, для Трансформера это будет `embedding_dim`.
     pub fn new(normalized_shape: usize) -> Self {
-        // gamma инициализируется единицами.
+        // gamma инициализируется единицами. Форма [1, normalized_shape] для broadcasting'а.
         let gamma = Tensor::ones(&[1, normalized_shape], true);
         // beta инициализируется нулями.
         let beta = Tensor::zeros(&[1, normalized_shape], true);
@@ -36,8 +49,18 @@ impl LayerNorm {
 
 impl Module for LayerNorm {
     /// Выполняет прямой проход LayerNorm.
-    fn forward(&self, inputs: &Tensor) -> Tensor {
-        crate::ops::norm::layernorm_op(inputs, &self.gamma, &self.beta, self.epsilon)
+    ///
+    /// Формула: `y = (x - mean(x)) / sqrt(var(x) + epsilon) * gamma + beta`
+    // --- ИЗМЕНЕНИЕ: Сигнатура функции обновлена ---
+    fn forward(&self, inputs: &Tensor) -> Result<Tensor> {
+        // --- ИЗМЕНЕНИЕ: Результат обернут в Ok() ---
+        // Позже `layernorm_op` будет возвращать `Result`, и мы добавим сюда `?`.
+        Ok(crate::ops::norm::layernorm_op(
+            inputs,
+            &self.gamma,
+            &self.beta,
+            self.epsilon,
+        ))
     }
 
     /// Возвращает `gamma` и `beta` как обучаемые параметры.
