@@ -6,6 +6,7 @@ pub mod containers;
 pub mod embedding;
 pub mod norm;
 pub mod attention;
+pub mod feedforward;
 
 
 // Ре-экспортируем самые важные структуры.
@@ -16,3 +17,4 @@ pub use containers::Sequential;
 pub use embedding::Embedding;
 pub use norm::LayerNorm;
 pub use attention::MultiHeadAttention;
+pub use feedforward::FeedForward;
