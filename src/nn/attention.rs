@@ -2,7 +2,6 @@
 
 use crate::nn::{Linear, Module};
 use crate::tensor::Tensor;
-// --- ИЗМЕНЕНИЕ: Импортируем наш Result ---
 use crate::error::Result;
 use std::ops::Mul;
 
@@ -56,35 +55,32 @@ impl MultiHeadAttention {
 }
 
 impl Module for MultiHeadAttention {
-    // --- ИЗМЕНЕНИЕ: Сигнатура функции обновлена ---
     fn forward(&self, inputs: &Tensor) -> Result<Tensor> {
         let batch_size = inputs.data.borrow().shape()[0];
         let seq_len = inputs.data.borrow().shape()[1];
 
-        // --- ВРЕМЕННАЯ МЕРА: Используем `?` с `.unwrap()` для простоты. ---
-        // Позже, когда `forward` у `Linear` будет возвращать `Result`,
-        // мы сможем использовать `?` напрямую. Сейчас это бы вызвало ошибку компиляции.
-        // Чтобы код компилировался, мы вынуждены пока оставить `.unwrap()`.
-        // Это одна из причин, почему мы будем возвращаться к этим файлам.
+        // --- ИЗМЕНЕНИЕ: Заменяем все `.unwrap()` на `?` ---
 
         // 1. Линейные проекции для Q, K, V
-        let q = self.w_q.forward(inputs).unwrap();
-        let k = self.w_k.forward(inputs).unwrap();
-        let v = self.w_v.forward(inputs).unwrap();
+        let q = self.w_q.forward(inputs)?;
+        let k = self.w_k.forward(inputs)?;
+        let v = self.w_v.forward(inputs)?;
 
         // 2. Разделение на "головы" и транспонирование
         let q_heads = q
-            .reshape(vec![batch_size, seq_len, self.num_heads, self.head_dim])
-            .transpose(1, 2);
+            .reshape(vec![batch_size, seq_len, self.num_heads, self.head_dim])?
+            .transpose(1, 2)?;
         let k_heads = k
-            .reshape(vec![batch_size, seq_len, self.num_heads, self.head_dim])
-            .transpose(1, 2);
+            .reshape(vec![batch_size, seq_len, self.num_heads, self.head_dim])?
+            .transpose(1, 2)?;
         let v_heads = v
-            .reshape(vec![batch_size, seq_len, self.num_heads, self.head_dim])
-            .transpose(1, 2);
+            .reshape(vec![batch_size, seq_len, self.num_heads, self.head_dim])?
+            .transpose(1, 2)?;
 
         // 3. Вычисление очков внимания
-        let scores = q_heads.dot(&k_heads.transpose(2, 3));
+        // .dot() и .mul() пока не возвращают Result, поэтому `?` не нужен.
+        let k_heads_transposed = k_heads.transpose(2, 3)?;
+        let scores = q_heads.dot(&k_heads_transposed);
 
         // Масштабирование
         let scale_inv = Tensor::new(
@@ -101,13 +97,12 @@ impl Module for MultiHeadAttention {
 
         // 5. Слияние голов
         let concatenated_output = attention_output
-            .transpose(1, 2)
-            .reshape(vec![batch_size, seq_len, self.embed_dim]);
-
+            .transpose(1, 2)?
+            .reshape(vec![batch_size, seq_len, self.embed_dim])?;
+            
         // 6. Выходная линейная проекция
-        let final_output = self.w_o.forward(&concatenated_output).unwrap();
-        
-        // --- ИЗМЕНЕНИЕ: Финальный результат оборачивается в Ok() ---
+        let final_output = self.w_o.forward(&concatenated_output)?;
+            
         Ok(final_output)
     }
 
