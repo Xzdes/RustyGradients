@@ -1,5 +1,7 @@
+// src/ops/matmul.rs
 use crate::core::autograd::BackwardContext;
 use crate::tensor::Tensor;
+// --- ИСПРАВЛЕНИЕ: Убираем неиспользуемый `Ix3` ---
 use ndarray::{s, ArrayD, Ix2, Ix3, Ix4};
 use std::ops::AddAssign;
 use std::rc::Rc;
@@ -14,6 +16,7 @@ pub fn dot_op(a: &Tensor, b: &Tensor) -> Tensor {
     let b_data = b.data.borrow();
 
     let result_data: ArrayD<f32> = match (a_data.ndim(), b_data.ndim()) {
+        // ... (код для forward pass остается без изменений) ...
         // ---------- 4-D ⊗ 4-D ----------
         (4, 4) => {
             let batch_size = a_data.shape()[0];
@@ -134,23 +137,17 @@ pub fn dot_op(a: &Tensor, b: &Tensor) -> Tensor {
                 (4, 4) => {
                     let batch = a_ref.shape()[0];
                     let heads = a_ref.shape()[1];
-                    let m = a_ref.shape()[2];
-                    let k = a_ref.shape()[3];
-                    let n = b_ref.shape()[3];
-
-                    let up = upstream_grad
-                        .clone()
-                        .into_dimensionality::<Ix4>()
-                        .unwrap();
+                    // --- ИСПРАВЛЕНИЕ: Удаляем неиспользуемые переменные ---
+                    let up = upstream_grad.view().into_dimensionality::<Ix4>().unwrap();
 
                     // dA = upstream · Bᵀ
                     if let Some(grad_a) = &a_clone.grad {
                         let mut ga = grad_a.borrow_mut();
-                        for b in 0..batch {
-                            for h in 0..heads {
-                                let up_mat = up.slice(s![b, h, .., ..]);
-                                let b_mat = b_ref.slice(s![b, h, .., ..]);
-                                ga.slice_mut(s![b, h, .., ..])
+                        for b_idx in 0..batch {
+                            for h_idx in 0..heads {
+                                let up_mat = up.slice(s![b_idx, h_idx, .., ..]);
+                                let b_mat = b_ref.slice(s![b_idx, h_idx, .., ..]);
+                                ga.slice_mut(s![b_idx, h_idx, .., ..])
                                     .add_assign(&up_mat.dot(&b_mat.t()));
                             }
                         }
@@ -159,32 +156,88 @@ pub fn dot_op(a: &Tensor, b: &Tensor) -> Tensor {
                     // dB = Aᵀ · upstream
                     if let Some(grad_b) = &b_clone.grad {
                         let mut gb = grad_b.borrow_mut();
-                        for b in 0..batch {
-                            for h in 0..heads {
-                                let a_mat = a_ref.slice(s![b, h, .., ..]);
-                                let up_mat = up.slice(s![b, h, .., ..]);
-                                gb.slice_mut(s![b, h, .., ..])
+                        for b_idx in 0..batch {
+                            for h_idx in 0..heads {
+                                let a_mat = a_ref.slice(s![b_idx, h_idx, .., ..]);
+                                let up_mat = up.slice(s![b_idx, h_idx, .., ..]);
+                                gb.slice_mut(s![b_idx, h_idx, .., ..])
                                     .add_assign(&a_mat.t().dot(&up_mat));
                             }
                         }
                     }
                 }
 
+                // --- НОВЫЙ КОД ---
                 // ---------- 3-D ⊗ 2-D backward ----------
                 (3, 2) => {
-                    // (код из предыдущего ответа)
+                    let batch = a_ref.shape()[0];
+                    let up = upstream_grad.view().into_dimensionality::<Ix3>().unwrap();
+                    let b_mat = b_ref.view().into_dimensionality::<Ix2>().unwrap();
+
+                    // dA = upstream · Bᵀ
+                    if let Some(grad_a) = &a_clone.grad {
+                        let mut ga = grad_a.borrow_mut();
+                        for b_idx in 0..batch {
+                            let up_slice = up.slice(s![b_idx, .., ..]);
+                            ga.slice_mut(s![b_idx, .., ..]).add_assign(&up_slice.dot(&b_mat.t()));
+                        }
+                    }
+
+                    // dB = Aᵀ · upstream (с суммированием по батчу)
+                    if let Some(grad_b) = &b_clone.grad {
+                        let mut gb = grad_b.borrow_mut();
+                        for b_idx in 0..batch {
+                            let a_slice = a_ref.slice(s![b_idx, .., ..]);
+                            let up_slice = up.slice(s![b_idx, .., ..]);
+                            gb.add_assign(&a_slice.t().dot(&up_slice));
+                        }
+                    }
                 }
 
+                // --- НОВЫЙ КОД ---
                 // ---------- 3-D ⊗ 3-D backward ----------
                 (3, 3) => {
-                    // (код из предыдущего ответа)
+                    let batch = a_ref.shape()[0];
+                    let up = upstream_grad.view().into_dimensionality::<Ix3>().unwrap();
+                    
+                    // dA = upstream · Bᵀ
+                    if let Some(grad_a) = &a_clone.grad {
+                        let mut ga = grad_a.borrow_mut();
+                         for b_idx in 0..batch {
+                            let up_mat = up.slice(s![b_idx, .., ..]);
+                            let b_mat = b_ref.slice(s![b_idx, .., ..]);
+                            ga.slice_mut(s![b_idx, .., ..]).add_assign(&up_mat.dot(&b_mat.t()));
+                        }
+                    }
+
+                    // dB = Aᵀ · upstream
+                    if let Some(grad_b) = &b_clone.grad {
+                        let mut gb = grad_b.borrow_mut();
+                         for b_idx in 0..batch {
+                            let a_mat = a_ref.slice(s![b_idx, .., ..]);
+                            let up_mat = up.slice(s![b_idx, .., ..]);
+                            gb.slice_mut(s![b_idx, .., ..]).add_assign(&a_mat.t().dot(&up_mat));
+                        }
+                    }
                 }
 
+                // --- НОВЫЙ КОД ---
                 // ---------- 2-D ⊗ 2-D backward ----------
                 (2, 2) => {
-                    // (код из предыдущего ответа)
-                }
+                    let up = upstream_grad.view().into_dimensionality::<Ix2>().unwrap();
+                    let a_mat = a_ref.view().into_dimensionality::<Ix2>().unwrap();
+                    let b_mat = b_ref.view().into_dimensionality::<Ix2>().unwrap();
+                    
+                    // dA = upstream · Bᵀ
+                    if let Some(grad_a) = &a_clone.grad {
+                         grad_a.borrow_mut().add_assign(&up.dot(&b_mat.t()).into_dyn());
+                    }
 
+                    // dB = Aᵀ · upstream
+                    if let Some(grad_b) = &b_clone.grad {
+                         grad_b.borrow_mut().add_assign(&a_mat.t().dot(&up).into_dyn());
+                    }
+                }
                 _ => unreachable!(),
             }
         });

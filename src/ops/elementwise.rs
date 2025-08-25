@@ -5,7 +5,7 @@
 
 use crate::core::autograd::BackwardContext;
 use crate::tensor::Tensor;
-use ndarray::{ArrayD, Axis};
+use ndarray::{Axis};
 use std::rc::Rc;
 
 /// powf: возводит каждый элемент тензора в степень `power`.

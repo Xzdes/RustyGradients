@@ -16,7 +16,8 @@ fn reduce_grad(upstream: &ArrayD<f32>, target: &[usize]) -> ArrayD<f32> {
     let cur_len = current.ndim();
 
     // Сводим лишние оси (слева)
-    for axis in 0..(cur_len - tgt_len) {
+    // --- ИСПРАВЛЕНИЕ: Используем `_` для неиспользуемой переменной ---
+    for _ in 0..(cur_len - tgt_len) {
         current = current.sum_axis(Axis(0));
     }
 
@@ -45,6 +46,7 @@ fn reduce_grad(upstream: &ArrayD<f32>, target: &[usize]) -> ArrayD<f32> {
     current
 }
 
+// ... (остальной код файла без изменений) ...
 // ------------------ Add ------------------
 impl Add<&Tensor> for &Tensor {
     type Output = Tensor;
