@@ -4,9 +4,9 @@
 // внутри `common.rs`. Она будет использоваться в других файлах.
 #![allow(dead_code)]
 
-use slmrustai::nn::Module;
-use slmrustai::tensor::Tensor;
-// --- ИСПРАВЛЕНИЕ: Удаляем неиспользуемый `Ordering` ---
+// --- ИСПРАВЛЕНИЕ: Используем новое имя крейта ---
+use rusty_gradients::nn::Module;
+use rusty_gradients::tensor::Tensor;
 
 /// Вспомогательная функция для проверки градиентов.
 /// Проверяет, что градиенты не нулевые, и выводит их сумму.

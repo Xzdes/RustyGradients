@@ -3,9 +3,9 @@
 // Подключаем наш общий модуль
 mod common;
 
-// <-- Добавлен TransformerBlock
-use slmrustai::nn::{FeedForward, Linear, Module, MultiHeadAttention, ReLU, TransformerBlock}; 
-use slmrustai::tensor::Tensor;
+// --- ИСПРАВЛЕНИЕ: Используем новое имя крейта ---
+use rusty_gradients::nn::{FeedForward, Linear, Module, MultiHeadAttention, ReLU, TransformerBlock};
+use rusty_gradients::tensor::Tensor;
 
 use ndarray::ArrayD;
 use ndarray_rand::rand_distr::Uniform;
