@@ -2,9 +2,9 @@
 
 use crate::nn::{FeedForward, LayerNorm, Module, MultiHeadAttention};
 use crate::tensor::Tensor;
-// --- ИЗМЕНЕНИЕ: Импортируем наш Result ---
 use crate::error::Result;
-use std::ops::Add;
+// --- ИЗМЕНЕНИЕ: Удаляем эту строку ---
+// use std::ops::Add;
 
 /// Один блок кодировщика Трансформера.
 ///
@@ -48,27 +48,19 @@ impl Module for TransformerBlock {
     /// Прямой проход через блок Трансформера.
     ///
     /// Логика: `x + Attention(Norm(x))` -> `x + FeedForward(Norm(x))`
-    // --- ИЗМЕНЕНИЕ: Сигнатура функции обновлена ---
     fn forward(&self, inputs: &Tensor) -> Result<Tensor> {
-        // --- ВРЕМЕННАЯ МЕРА: Используем `.unwrap()` ---
-        // Позже, когда все `forward` будут возвращать `Result`,
-        // мы заменим `.unwrap()` на `?`.
-
         // 1. Под-слой Multi-Head Attention
-        // Сначала нормализуем вход, затем пропускаем через attention
-        let normed_inputs1 = self.norm1.forward(inputs).unwrap();
-        let attention_output = self.attention.forward(&normed_inputs1).unwrap();
-        // Первое остаточное соединение (Add)
-        let x = inputs.add(&attention_output);
+        let normed_inputs1 = self.norm1.forward(inputs)?;
+        let attention_output = self.attention.forward(&normed_inputs1)?;
+        // Используем оператор `+` для остаточного соединения
+        let x = inputs + &attention_output;
 
         // 2. Под-слой FeedForward
-        // Сначала нормализуем результат первого под-слоя, затем пропускаем через FFN
-        let normed_inputs2 = self.norm2.forward(&x).unwrap();
-        let ff_output = self.feed_forward.forward(&normed_inputs2).unwrap();
-        // Второе остаточное соединение (Add)
-        let final_output = x.add(&ff_output);
+        let normed_inputs2 = self.norm2.forward(&x)?;
+        let ff_output = self.feed_forward.forward(&normed_inputs2)?;
+        // Второе остаточное соединение
+        let final_output = &x + &ff_output;
 
-        // --- ИЗМЕНЕНИЕ: Финальный результат оборачивается в Ok() ---
         Ok(final_output)
     }
 

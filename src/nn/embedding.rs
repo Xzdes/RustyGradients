@@ -2,7 +2,6 @@
 
 use crate::nn::module::Module;
 use crate::tensor::Tensor;
-// --- ИЗМЕНЕНИЕ: Импортируем наш Result ---
 use crate::error::Result;
 use ndarray::IxDyn;
 use ndarray_rand::rand_distr::Uniform;
@@ -59,11 +58,8 @@ impl Module for Embedding {
     ///
     /// Тензор с соответствующими встраиваниями.
     /// Выходная форма: `[batch_size, seq_len, embedding_dim]`.
-    // --- ИЗМЕНЕНИЕ: Сигнатура функции обновлена ---
     fn forward(&self, inputs: &Tensor) -> Result<Tensor> {
-        // --- ИЗМЕНЕНИЕ: Результат обернут в Ok() ---
-        // Позже `embedding_op` будет возвращать `Result`, и мы добавим сюда `?`.
-        Ok(crate::ops::embedding::embedding_op(inputs, &self.weights))
+        inputs.embedding(&self.weights)
     }
 
     /// Возвращает матрицу весов как единственный обучаемый параметр.

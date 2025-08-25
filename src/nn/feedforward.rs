@@ -2,7 +2,6 @@
 
 use crate::nn::{Linear, Module, ReLU};
 use crate::tensor::Tensor;
-// --- ИЗМЕНЕНИЕ: Импортируем наш Result ---
 use crate::error::Result;
 
 /// Слой FeedForward, стандартный компонент блока Трансформера.
@@ -38,17 +37,13 @@ impl FeedForward {
 
 impl Module for FeedForward {
     /// Прямой проход: `Linear -> ReLU -> Linear`
-    // --- ИЗМЕНЕНИЕ: Сигнатура функции обновлена ---
     fn forward(&self, inputs: &Tensor) -> Result<Tensor> {
-        // --- ВРЕМЕННАЯ МЕРА: Используем `.unwrap()` ---
-        // Позже, когда все `forward` будут возвращать `Result`,
-        // мы заменим `.unwrap()` на `?`.
+        // --- ИЗМЕНЕНИЕ: Заменяем все `.unwrap()` на `?` ---
 
-        let x = self.linear1.forward(inputs).unwrap();
-        let x = self.relu.forward(&x).unwrap();
-        let final_output = self.linear2.forward(&x).unwrap();
+        let x = self.linear1.forward(inputs)?;
+        let x = self.relu.forward(&x)?;
+        let final_output = self.linear2.forward(&x)?;
 
-        // --- ИЗМЕНЕНИЕ: Финальный результат оборачивается в Ok() ---
         Ok(final_output)
     }
 

@@ -2,7 +2,6 @@
 
 use crate::nn::module::Module;
 use crate::tensor::Tensor;
-// --- ИЗМЕНЕНИЕ: Импортируем наш Result ---
 use crate::error::Result;
 
 /// Малая константа для численной стабильности при делении на стандартное отклонение.
@@ -51,16 +50,10 @@ impl Module for LayerNorm {
     /// Выполняет прямой проход LayerNorm.
     ///
     /// Формула: `y = (x - mean(x)) / sqrt(var(x) + epsilon) * gamma + beta`
-    // --- ИЗМЕНЕНИЕ: Сигнатура функции обновлена ---
     fn forward(&self, inputs: &Tensor) -> Result<Tensor> {
-        // --- ИЗМЕНЕНИЕ: Результат обернут в Ok() ---
-        // Позже `layernorm_op` будет возвращать `Result`, и мы добавим сюда `?`.
-        Ok(crate::ops::norm::layernorm_op(
-            inputs,
-            &self.gamma,
-            &self.beta,
-            self.epsilon,
-        ))
+        // --- ИЗМЕНЕНИЕ: Убираем временный `Ok()` ---
+        // Теперь `layernorm_op` сама возвращает `Result`.
+        inputs.layer_norm(&self.gamma, &self.beta, self.epsilon)
     }
 
     /// Возвращает `gamma` и `beta` как обучаемые параметры.

@@ -54,12 +54,10 @@ impl Tensor {
         Self::new(data, requires_grad)
     }
 
-    // --- ИЗМЕНЕНИЕ: Сигнатура обновлена ---
     pub fn dot(&self, other: &Tensor) -> Result<Tensor> {
         crate::ops::matmul::dot_op(self, other)
     }
 
-    // --- Оставшиеся функции пока не меняем ---
     pub fn sub(&self, other: &Tensor) -> Tensor {
         self - other
     }
@@ -84,11 +82,12 @@ impl Tensor {
         crate::ops::elementwise::log_op(self)
     }
     
-    pub fn embedding(&self, weights: &Tensor) -> Tensor {
+    pub fn embedding(&self, weights: &Tensor) -> Result<Tensor> {
         crate::ops::embedding::embedding_op(self, weights)
     }
 
-    pub fn layer_norm(&self, gamma: &Tensor, beta: &Tensor, epsilon: f32) -> Tensor {
+    // --- ИЗМЕНЕНИЕ: Сигнатура обновлена ---
+    pub fn layer_norm(&self, gamma: &Tensor, beta: &Tensor, epsilon: f32) -> Result<Tensor> {
         crate::ops::norm::layernorm_op(self, gamma, beta, epsilon)
     }
     

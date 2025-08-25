@@ -9,6 +9,7 @@ pub mod attention;
 pub mod feedforward;
 pub mod transformer;
 
+
 // Ре-экспортируем самые важные структуры.
 pub use module::Module;
 pub use linear::Linear;
