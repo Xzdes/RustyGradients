@@ -59,8 +59,6 @@ impl Module for MultiHeadAttention {
         let batch_size = inputs.data.borrow().shape()[0];
         let seq_len = inputs.data.borrow().shape()[1];
 
-        // --- ИЗМЕНЕНИЕ: Заменяем все `.unwrap()` на `?` ---
-
         // 1. Линейные проекции для Q, K, V
         let q = self.w_q.forward(inputs)?;
         let k = self.w_k.forward(inputs)?;
@@ -78,9 +76,9 @@ impl Module for MultiHeadAttention {
             .transpose(1, 2)?;
 
         // 3. Вычисление очков внимания
-        // .dot() и .mul() пока не возвращают Result, поэтому `?` не нужен.
         let k_heads_transposed = k_heads.transpose(2, 3)?;
-        let scores = q_heads.dot(&k_heads_transposed);
+        // --- ИЗМЕНЕНИЕ: Добавляем `?` после `.dot()` ---
+        let scores = q_heads.dot(&k_heads_transposed)?;
 
         // Масштабирование
         let scale_inv = Tensor::new(
@@ -93,7 +91,8 @@ impl Module for MultiHeadAttention {
         let attention_weights = scores_scaled.softmax();
 
         // 4. Взвешивание векторов значений (V)
-        let attention_output = attention_weights.dot(&v_heads);
+        // --- ИЗМЕНЕНИЕ: Добавляем `?` после `.dot()` ---
+        let attention_output = attention_weights.dot(&v_heads)?;
 
         // 5. Слияние голов
         let concatenated_output = attention_output

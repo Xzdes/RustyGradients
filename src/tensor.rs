@@ -1,5 +1,4 @@
 use crate::core::autograd::{self, BackwardContext};
-// --- ИЗМЕНЕНИЕ: Импортируем наш Result ---
 use crate::error::Result;
 use ndarray::{ArrayD, IxDyn};
 use std::cell::RefCell;
@@ -55,11 +54,12 @@ impl Tensor {
         Self::new(data, requires_grad)
     }
 
-    // --- ИЗМЕНЕНИЕ: Эти функции пока не возвращают Result, дойдем до них позже ---
-    pub fn dot(&self, other: &Tensor) -> Tensor {
+    // --- ИЗМЕНЕНИЕ: Сигнатура обновлена ---
+    pub fn dot(&self, other: &Tensor) -> Result<Tensor> {
         crate::ops::matmul::dot_op(self, other)
     }
 
+    // --- Оставшиеся функции пока не меняем ---
     pub fn sub(&self, other: &Tensor) -> Tensor {
         self - other
     }
@@ -96,14 +96,10 @@ impl Tensor {
         crate::ops::elementwise::softmax_op(self)
     }
 
-    /// Транспонирует тензор, меняя местами две заданные оси.
-    // --- ИЗМЕНЕНИЕ: Сигнатура обновлена ---
     pub fn transpose(&self, axis1: usize, axis2: usize) -> Result<Tensor> {
         crate::ops::transform::transpose_op(self, axis1, axis2)
     }
 
-    /// Изменяет форму тензора.
-    // --- ИЗМЕНЕНИЕ: Сигнатура обновлена ---
     pub fn reshape(&self, new_shape: Vec<usize>) -> Result<Tensor> {
         crate::ops::transform::reshape_op(self, new_shape)
     }

@@ -48,9 +48,9 @@ impl Module for Linear {
     /// `ndarray` поддерживает broadcasting для сложения, поэтому `+ &self.bias`
     /// корректно добавит вектор-строку смещений к каждой строке результата матричного умножения.
     fn forward(&self, inputs: &Tensor) -> Result<Tensor> {
-        // Пока `dot` и `+` не возвращают `Result`, мы просто выполняем операции
-        // и оборачиваем финальный результат в `Ok`.
-        let dot_product = inputs.dot(&self.weights);
+        // --- ИСПРАВЛЕНИЕ: Используем `?` и правильный синтаксис для `+` ---
+        let dot_product = inputs.dot(&self.weights)?;
+        // Оператор `+` реализован для `&Tensor`, поэтому используем ссылки
         let final_output = &dot_product + &self.bias;
         Ok(final_output)
     }
