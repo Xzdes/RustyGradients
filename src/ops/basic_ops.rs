@@ -1,52 +1,46 @@
-// src/ops/basic_ops.rs
-// Add, Sub, Mul с корректным broadcasting и backward
-// Без E0506
-
 use crate::core::autograd::BackwardContext;
 use crate::tensor::Tensor;
-use ndarray::{Axis, ArrayD};
-use std::ops::{Add, Sub, Mul};
+use ndarray::{ArrayD, Axis};
+use std::ops::{Add, Mul, Sub};
 use std::rc::Rc;
 
 /// Сводит градиент `upstream` к `target_shape` по правилам NumPy broadcasting.
-/// Суммируем по осям, где `target_shape == 1`.
-fn reduce_grad(upstream: &ArrayD<f32>, target: &[usize]) -> ArrayD<f32> {
+fn reduce_grad(upstream: &ArrayD<f32>, target_shape: &[usize]) -> ArrayD<f32> {
     let mut current = upstream.clone();
-    let tgt_len = target.len();
-    let cur_len = current.ndim();
-
-    // Сводим лишние оси (слева)
-    // --- ИСПРАВЛЕНИЕ: Используем `_` для неиспользуемой переменной ---
-    for _ in 0..(cur_len - tgt_len) {
+    let upstream_shape = current.shape();
+    
+    let trim_dims = upstream_shape.len().saturating_sub(target_shape.len());
+    for _ in 0..trim_dims {
         current = current.sum_axis(Axis(0));
     }
 
-    // Теперь обрабатываем оставшиеся оси
-    let cur_shape = current.shape().to_vec();
-    for (axis, (&cur_len_axis, &tgt_len_axis)) in cur_shape
-        .iter()
-        .zip(target.iter())
-        .enumerate()
-    {
-        if cur_len_axis != tgt_len_axis {
-            if tgt_len_axis == 1 {
-                current = current.sum_axis(Axis(axis));
+    let mut axes_to_sum = Vec::new();
+    for (i, (&upstream_dim, &target_dim)) in current.shape().iter().zip(target_shape.iter()).enumerate() {
+        if upstream_dim != target_dim {
+            if target_dim == 1 {
+                axes_to_sum.push(i);
             } else {
-                panic!("reduce_grad: incompatible shapes {:?} -> {:?}", cur_shape, target);
+                 panic!(
+                    "Cannot reduce grad from shape {:?} to {:?}, dimension mismatch at axis {}",
+                    upstream.shape(), target_shape, i
+                );
             }
         }
     }
+    
+    for axis_idx in axes_to_sum.iter().rev() {
+        current = current.sum_axis(Axis(*axis_idx));
+    }
 
-    // Финальный reshape
-    if current.shape() != target {
+    if current.shape() != target_shape {
         current = current
-            .into_shape_with_order(target.to_vec())
+            .into_shape_with_order(target_shape.to_vec())
             .expect("reduce_grad: final reshape failed");
     }
+
     current
 }
 
-// ... (остальной код файла без изменений) ...
 // ------------------ Add ------------------
 impl Add<&Tensor> for &Tensor {
     type Output = Tensor;
@@ -59,12 +53,10 @@ impl Add<&Tensor> for &Tensor {
         let mut result = Tensor::new(result_data, requires_grad);
 
         if requires_grad {
-            let lhs_shape = self.data.borrow().shape().to_vec();
-            let rhs_shape = rhs.data.borrow().shape().to_vec();
-
+            let lhs_shape = lhs_data.shape().to_vec();
+            let rhs_shape = rhs_data.shape().to_vec();
             let lhs_for_closure = self.clone();
             let rhs_for_closure = rhs.clone();
-
             let backward_fn = Box::new(move |upstream_grad: &ArrayD<f32>| {
                 if let Some(grad_lhs) = &lhs_for_closure.grad {
                     let reduced = reduce_grad(upstream_grad, &lhs_shape);
@@ -75,13 +67,11 @@ impl Add<&Tensor> for &Tensor {
                     grad_rhs.borrow_mut().scaled_add(1.0, &reduced);
                 }
             });
-
             result.ctx = Some(Rc::new(BackwardContext {
                 inputs: vec![self.clone(), rhs.clone()],
                 backward_fn,
             }));
         }
-
         result
     }
 }
@@ -98,12 +88,10 @@ impl Sub<&Tensor> for &Tensor {
         let mut result = Tensor::new(result_data, requires_grad);
 
         if requires_grad {
-            let lhs_shape = self.data.borrow().shape().to_vec();
-            let rhs_shape = rhs.data.borrow().shape().to_vec();
-
+            let lhs_shape = lhs_data.shape().to_vec();
+            let rhs_shape = rhs_data.shape().to_vec();
             let lhs_for_closure = self.clone();
             let rhs_for_closure = rhs.clone();
-
             let backward_fn = Box::new(move |upstream_grad: &ArrayD<f32>| {
                 if let Some(grad_lhs) = &lhs_for_closure.grad {
                     let reduced = reduce_grad(upstream_grad, &lhs_shape);
@@ -114,13 +102,11 @@ impl Sub<&Tensor> for &Tensor {
                     grad_rhs.borrow_mut().scaled_add(-1.0, &reduced);
                 }
             });
-
             result.ctx = Some(Rc::new(BackwardContext {
                 inputs: vec![self.clone(), rhs.clone()],
                 backward_fn,
             }));
         }
-
         result
     }
 }
@@ -137,12 +123,10 @@ impl Mul<&Tensor> for &Tensor {
         let mut result = Tensor::new(result_data, requires_grad);
 
         if requires_grad {
-            let lhs_shape = self.data.borrow().shape().to_vec();
-            let rhs_shape = rhs.data.borrow().shape().to_vec();
-
+            let lhs_shape = lhs_data.shape().to_vec();
+            let rhs_shape = rhs_data.shape().to_vec();
             let lhs_for_closure = self.clone();
             let rhs_for_closure = rhs.clone();
-
             let backward_fn = Box::new(move |upstream_grad: &ArrayD<f32>| {
                 if let Some(grad_lhs) = &lhs_for_closure.grad {
                     let rhs_val = rhs_for_closure.data.borrow();
@@ -155,13 +139,11 @@ impl Mul<&Tensor> for &Tensor {
                     grad_rhs.borrow_mut().scaled_add(1.0, &reduced);
                 }
             });
-
             result.ctx = Some(Rc::new(BackwardContext {
                 inputs: vec![self.clone(), rhs.clone()],
                 backward_fn,
             }));
         }
-
         result
     }
 }
