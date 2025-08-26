@@ -5,3 +5,4 @@ pub mod reduction;
 pub mod embedding;
 pub mod norm;
 pub mod transform;
+pub mod selection;

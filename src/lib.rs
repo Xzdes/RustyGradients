@@ -1,3 +1,4 @@
+// src/lib.rs
 //! # RustyGradients
 //!
 //! `rusty-gradients` - это фреймворк для глубокого обучения на Rust,
@@ -7,18 +8,16 @@
 //! Основной компонент - это `Tensor`, который поддерживает автоматическое
 //! дифференцирование (autograd).
 
-// Объявляем новый модуль ошибок и делаем его публичным
 pub mod error;
-
-// Делаем `Tensor` доступным на верхнем уровне.
-// `use rusty_gradients::tensor::Tensor`
 pub mod tensor;
-
-// Создаем публичные модули, чтобы пользователь мог писать, например, `rusty_gradients::nn::Linear`.
 pub mod core;
 pub mod nn;
 pub mod ops;
 pub mod optim;
-
-// -- Раскомментируем модуль для функций потерь --
 pub mod losses;
+
+// --- ИСПРАВЛЕНИЕ: Объявляем наш новый модуль с моделью ---
+pub mod models;
+
+// --- Объявляем наш API для WebAssembly ---
+pub mod wasm_api;

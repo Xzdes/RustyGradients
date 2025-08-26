@@ -12,8 +12,10 @@
 // Объявляем файлы как публичные субмодули.
 pub mod mse;
 pub mod bce;
+pub mod cross_entropy;
 
 // Ре-экспортируем функции для удобства, чтобы к ним можно было
 // обращаться как `rusty_gradients::losses::mse_loss`.
 pub use mse::mse_loss;
 pub use bce::bce_loss;
+pub use cross_entropy::cross_entropy_loss; 

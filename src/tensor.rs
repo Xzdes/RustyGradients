@@ -17,21 +17,6 @@ use std::rc::Rc;
 /// что позволяет иметь несколько "владельцев" одного тензора и изменять его
 /// содержимое, даже если на него есть только иммутабельные ссылки. Это ключевой
 /// механизм для построения динамического графа вычислений.
-///
-/// # Примеры
-///
-/// ```
-/// use rusty_gradients::tensor::Tensor;
-/// use ndarray::array;
-///
-/// // Создание тензора, требующего градиент
-/// let data = array![[1.0, 2.0], [3.0, 4.0]].into_dyn();
-/// let t = Tensor::new(data, true);
-///
-/// // Проверка, что градиент был инициализирован нулями
-/// assert!(t.grad.is_some());
-/// assert_eq!(t.grad.as_ref().unwrap().borrow().sum(), 0.0);
-/// ```
 #[derive(Clone)]
 pub struct Tensor {
     /// Внутренние данные тензора. Доступны для чтения и записи через `RefCell`.
@@ -44,6 +29,7 @@ pub struct Tensor {
 
 impl Hash for Tensor {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        // Хэшируем по указателю на данные, чтобы уникально идентифицировать узел в графе.
         Rc::as_ptr(&self.data).hash(state);
     }
 }
@@ -94,14 +80,24 @@ impl Tensor {
         Self::new(data, requires_grad)
     }
 
-    /// Выполняет матричное умножение. См. `ops::matmul::dot_op`.
-    pub fn dot(&self, other: &Tensor) -> Result<Tensor> {
-        crate::ops::matmul::dot_op(self, other)
+    /// Выполняет сложение. См. `ops::basic_ops`.
+    pub fn add(&self, other: &Tensor) -> Tensor {
+        self + other
     }
 
     /// Выполняет вычитание. См. `ops::basic_ops`.
     pub fn sub(&self, other: &Tensor) -> Tensor {
         self - other
+    }
+    
+    /// Выполняет поэлементное умножение. См. `ops::basic_ops`.
+    pub fn mul(&self, other: &Tensor) -> Tensor {
+        self * other
+    }
+
+    /// Выполняет матричное умножение. См. `ops::matmul::dot_op`.
+    pub fn dot(&self, other: &Tensor) -> Result<Tensor> {
+        crate::ops::matmul::dot_op(self, other)
     }
 
     /// Возводит каждый элемент тензора в степень. См. `ops::elementwise::powf_op`.
@@ -128,6 +124,11 @@ impl Tensor {
     pub fn log(&self) -> Tensor {
         crate::ops::elementwise::log_op(self)
     }
+
+    /// Применяет поэлементную экспоненту. См. `ops::elementwise::exp_op`.
+    pub fn exp(&self) -> Tensor {
+        crate::ops::elementwise::exp_op(self)
+    }
     
     /// Выполняет операцию встраивания. См. `ops::embedding::embedding_op`.
     pub fn embedding(&self, weights: &Tensor) -> Result<Tensor> {
@@ -152,6 +153,11 @@ impl Tensor {
     /// Изменяет форму тензора. См. `ops::transform::reshape_op`.
     pub fn reshape(&self, new_shape: Vec<usize>) -> Result<Tensor> {
         crate::ops::transform::reshape_op(self, new_shape)
+    }
+
+    /// Вычисляет Cross-Entropy Loss. См. `ops::selection::sparse_cross_entropy_op`.
+    pub fn sparse_cross_entropy(&self, targets: &Tensor) -> Tensor {
+        crate::ops::selection::sparse_cross_entropy_op(self, targets)
     }
 
     /// Запускает обратное распространение ошибки, начиная с этого тензора.

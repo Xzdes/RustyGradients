@@ -10,9 +10,30 @@ license = "MIT"
 keywords = ["deep-learning", "machine-learning", "autograd", "neural-network", "gradients"]
 categories = ["science"]
 
+[lib]
+crate-type = ["cdylib", "rlib"] # cdylib нужен для WASM
+
 
 [dependencies]
 ndarray = "0.16.1"
-rand = "0.9.2"
+rand = "0.8.5"
 ndarray-rand = "0.15.0"
 thiserror = "2.0.16"
+
+# --- НОВЫЕ ЗАВИСИМОСТИ ДЛЯ WASM ---
+wasm-bindgen = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+getrandom = { version = "0.2", features = ["js"] }
+
+
+# Для удобной отладки: паника в Rust будет выведена в консоль JS
+[dependencies.console_error_panic_hook]
+version = "0.1.7"
+optional = true
+
+[features]
+default = []
+# Фича для включения отладочных утилит
+wasm-debug = ["console_error_panic_hook"]
