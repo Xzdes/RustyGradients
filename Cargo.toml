@@ -1,14 +1,26 @@
 [package]
 name = "rusty-gradients"
-version = "0.1.0"
+version = "0.1.0" 
 edition = "2021"
 authors = ["Xzdes"]
-description = "A deep learning framework in Rust, focusing on autograd and Transformer architectures."
-readme = "README.md"
-repository = "https://github.com/Xzdes/RustyGradients"
+
+description = "A full-stack deep learning framework in Rust for training and deploying Transformer models, with support for CLI, WebAssembly, and library usage."
+
 license = "MIT"
-keywords = ["deep-learning", "machine-learning", "autograd", "neural-network", "gradients"]
-categories = ["science"]
+
+
+documentation = "https://docs.rs/rusty-gradients"
+repository = "https://github.com/Xzdes/RustyGradients"
+homepage = "https://github.com/Xzdes/RustyGradients"
+
+
+keywords = ["deep-learning", "machine-learning", "autograd", "neural-network", "gpt", "transformer", "wasm"]
+
+# ОЧЕНЬ ВАЖНО: Категории, по которым ваш крейт будет отсортирован.
+categories = ["science", "computer-science", "wasm", "command-line-utilities"]
+
+# Указываем, какой файл README использовать.
+readme = "README.md"
 
 [lib]
 crate-type = ["cdylib", "rlib"] # cdylib нужен для WASM
@@ -26,6 +38,11 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 getrandom = { version = "0.2", features = ["js"] }
+
+
+chrono = { version = "0.4", features = ["serde"] } # Добавляем chrono
+
+log = "0.4.27"
 
 
 # Для удобной отладки: паника в Rust будет выведена в консоль JS
