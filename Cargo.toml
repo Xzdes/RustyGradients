@@ -17,7 +17,7 @@ homepage = "https://github.com/Xzdes/RustyGradients"
 keywords = ["machine-learning", "autograd", "gpt", "transformer", "wasm"]
 
 # ОЧЕНЬ ВАЖНО: Категории, по которым ваш крейт будет отсортирован.
-categories = ["science", "computer-science", "wasm", "command-line-utilities"]
+categories = ["science", "wasm", "command-line-utilities"]
 
 # Указываем, какой файл README использовать.
 readme = "README.md"
