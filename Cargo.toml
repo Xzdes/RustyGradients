@@ -14,7 +14,7 @@ repository = "https://github.com/Xzdes/RustyGradients"
 homepage = "https://github.com/Xzdes/RustyGradients"
 
 
-keywords = ["deep-learning", "machine-learning", "autograd", "neural-network", "gpt", "transformer", "wasm"]
+keywords = ["machine-learning", "autograd", "gpt", "transformer", "wasm"]
 
 # ОЧЕНЬ ВАЖНО: Категории, по которым ваш крейт будет отсортирован.
 categories = ["science", "computer-science", "wasm", "command-line-utilities"]
