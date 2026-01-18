@@ -30,3 +30,9 @@ pub mod tensor_v2;
 
 // === NEW: Operations V2 with autograd for TensorV2 ===
 pub mod ops_v2;
+
+// === NEW: Model serialization (Safetensors + legacy JSON) ===
+pub mod serialization;
+
+// === NEW: Tokenization (Character, BPE, HuggingFace) ===
+pub mod tokenization;

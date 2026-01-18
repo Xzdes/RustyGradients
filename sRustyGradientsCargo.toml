@@ -1,0 +1,4 @@
+
+[[bench]]
+name = "serialization_benchmark"
+harness = false

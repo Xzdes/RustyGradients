@@ -39,4 +39,12 @@ pub enum RustyGradientsError {
     /// Обобщенная ошибка для различных невалидных входных данных.
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+
+    /// Ошибка сериализации/десериализации
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+
+    /// Ошибка ввода/вывода
+    #[error("IO error: {0}")]
+    IoError(String),
 }

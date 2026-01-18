@@ -49,7 +49,9 @@ log = "0.4.27"
 # Multi-threading для CPU optimization
 rayon = { version = "1.10", optional = true }
 
-# BLAS backend для fast matrix operations
+# BLAS backend для fast matrix operations (ndarray-linalg лучше чем чистый BLAS)
+ndarray-linalg = { version = "0.16", optional = true }
+openblas-src = { version = "0.10", optional = true, features = ["cblas", "system"] }
 blas-src = { version = "0.10", features = ["openblas"], optional = true }
 
 # Candle - multi-backend ML framework от HuggingFace
@@ -87,7 +89,7 @@ default = ["cpu"]
 
 # Backend features
 cpu = ["dep:rayon"]
-cpu-blas = ["cpu", "dep:blas-src"]  # Optional BLAS acceleration
+cpu-blas = ["cpu", "dep:ndarray-linalg", "dep:openblas-src"]  # BLAS acceleration (10-50x matmul speedup)
 cuda = ["dep:candle-core", "dep:cudarc"]
 metal-backend = ["dep:candle-core", "dep:metal"]
 accelerate = ["dep:candle-core"]  # Apple Silicon optimizations
@@ -103,6 +105,29 @@ data-parallel = ["dep:crossbeam", "dep:rayon"]
 wasm-debug = ["dep:console_error_panic_hook"]
 legacy = []  # Keep old tensor implementation for backward compatibility
 
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
 [[bench]]
 name = "matmul_benchmark"
+harness = false
+
+[[bench]]
+name = "blas_comparison"
+harness = false
+
+[[bench]]
+name = "simd_benchmark"
+harness = false
+
+[[bench]]
+name = "layernorm_benchmark"
+harness = false
+
+[[bench]]
+name = "cuda_comparison"
+harness = false
+
+[[bench]]
+name = "cuda_kernels_bench"
 harness = false

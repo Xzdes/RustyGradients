@@ -8,6 +8,8 @@ use ndarray::ArrayD;
 use std::sync::Arc;
 
 pub mod cpu;
+pub mod simd; // SIMD-optimized elementwise operations
+pub mod fused; // Fused multi-operation kernels
 
 #[cfg(feature = "cuda")]
 pub mod cuda;
