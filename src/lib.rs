@@ -27,3 +27,6 @@ pub mod backend;
 
 // === NEW: TensorV2 with multi-backend support ===
 pub mod tensor_v2;
+
+// === NEW: Operations V2 with autograd for TensorV2 ===
+pub mod ops_v2;
