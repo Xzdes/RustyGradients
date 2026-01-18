@@ -44,6 +44,38 @@ chrono = { version = "0.4", features = ["serde"] } # Добавляем chrono
 
 log = "0.4.27"
 
+# === Backend Modernization Dependencies ===
+
+# Multi-threading для CPU optimization
+rayon = { version = "1.10", optional = true }
+
+# BLAS backend для fast matrix operations
+blas-src = { version = "0.10", features = ["openblas"], optional = true }
+
+# Candle - multi-backend ML framework от HuggingFace
+candle-core = { version = "0.6", optional = true }
+candle-nn = { version = "0.6", optional = true }
+
+# CUDA support (note: feature is cuda-12000 not cuda-12)
+cudarc = { version = "0.11", features = ["cuda-12000", "cublas"], optional = true }
+
+# Metal support (Apple Silicon)
+metal = { version = "0.28", optional = true }
+
+# Serialization (safetensors для efficient model storage)
+safetensors = { version = "0.4", optional = true }
+memmap2 = { version = "0.9", optional = true }
+
+# Tokenization (BPE support)
+tokenizers = { version = "0.19", optional = true }
+tiktoken-rs = { version = "0.5", optional = true }
+
+# HuggingFace Hub integration
+hf-hub = { version = "0.3", optional = true }
+
+# Data loading utilities
+crossbeam = { version = "0.8", optional = true }
+
 
 # Для удобной отладки: паника в Rust будет выведена в консоль JS
 [dependencies.console_error_panic_hook]
@@ -51,6 +83,26 @@ version = "0.1.7"
 optional = true
 
 [features]
-default = []
-# Фича для включения отладочных утилит
-wasm-debug = ["console_error_panic_hook"]
+default = ["cpu"]
+
+# Backend features
+cpu = ["dep:rayon"]
+cpu-blas = ["cpu", "dep:blas-src"]  # Optional BLAS acceleration
+cuda = ["dep:candle-core", "dep:cudarc"]
+metal-backend = ["dep:candle-core", "dep:metal"]
+accelerate = ["dep:candle-core"]  # Apple Silicon optimizations
+candle = ["dep:candle-core", "dep:candle-nn"]
+
+# Advanced features
+serialization = ["dep:safetensors", "dep:memmap2"]
+tokenization = ["dep:tokenizers", "dep:tiktoken-rs"]
+huggingface = ["hf-hub", "serialization", "tokenization"]
+data-parallel = ["dep:crossbeam", "dep:rayon"]
+
+# Legacy/debug features
+wasm-debug = ["dep:console_error_panic_hook"]
+legacy = []  # Keep old tensor implementation for backward compatibility
+
+[[bench]]
+name = "matmul_benchmark"
+harness = false

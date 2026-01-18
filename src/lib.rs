@@ -21,3 +21,9 @@ pub mod models;
 
 // --- Объявляем наш API для WebAssembly ---
 pub mod wasm_api;
+
+// === NEW: Backend abstraction layer ===
+pub mod backend;
+
+// === NEW: TensorV2 with multi-backend support ===
+pub mod tensor_v2;
