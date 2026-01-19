@@ -1,10 +1,10 @@
 //! Matrix multiplication with autograd
 
 use crate::backend::cpu::CpuBackend;
-use crate::backend::{Backend, Device};
+use crate::backend::Backend;
 use crate::core::autograd::BackwardContext;
 use crate::error::Result;
-use crate::tensor_v2::{TensorData, TensorV2};
+use crate::tensor_v2::TensorV2;
 use std::rc::Rc;
 
 /// Matrix multiplication with autograd

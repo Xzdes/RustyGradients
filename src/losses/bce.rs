@@ -1,7 +1,6 @@
 //! Модуль, реализующий функцию потерь Бинарной Перекрестной Энтропии (BCE).
 
 use crate::tensor::Tensor;
-use std::ops::{Add, Mul};
 
 /// Вычисляет Бинарную Перекрестную Энтропию (Binary Cross-Entropy Loss).
 ///

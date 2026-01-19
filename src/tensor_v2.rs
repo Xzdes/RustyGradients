@@ -135,6 +135,7 @@ impl TensorV2 {
     }
 
     /// Создать ones тензор
+    #[allow(unreachable_patterns)]
     pub fn ones(shape: &[usize], requires_grad: bool, device: Device) -> Result<Self> {
         let data = match device.device_type() {
             DeviceType::Cpu => {

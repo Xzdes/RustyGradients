@@ -1,12 +1,11 @@
 //! Базовые арифметические операции с autograd
 
 use crate::backend::cpu::CpuBackend;
-use crate::backend::{Backend, Device};
+use crate::backend::Backend;
 use crate::core::autograd::BackwardContext;
 use crate::error::Result;
-use crate::tensor_v2::{TensorData, TensorV2};
+use crate::tensor_v2::TensorV2;
 use std::rc::Rc;
-use std::sync::Arc;
 
 /// Addition operation with autograd
 ///
@@ -128,6 +127,7 @@ pub fn sub_op(a: &TensorV2, b: &TensorV2) -> Result<TensorV2> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backend::Device;
 
     #[test]
     fn test_add_forward() {

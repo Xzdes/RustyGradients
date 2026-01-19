@@ -41,11 +41,13 @@ pub enum DeviceType {
 pub struct Device {
     device_type: DeviceType,
     // Используем enum dispatch вместо dyn trait для лучшей производительности
+    #[allow(dead_code)]
     backend: BackendImpl,
 }
 
 /// Enum dispatch для backend implementations
 #[derive(Clone)]
+#[allow(dead_code)]
 enum BackendImpl {
     Cpu(Arc<cpu::CpuBackend>),
     #[cfg(feature = "cuda")]
@@ -115,6 +117,7 @@ impl Device {
         self.device_type
     }
 
+    #[allow(dead_code, private_interfaces)]
     pub(crate) fn backend(&self) -> &BackendImpl {
         &self.backend
     }

@@ -17,8 +17,6 @@ pub use bpe_tokenizer::BPETokenizer;
 #[cfg(feature = "tokenization")]
 pub use hf_tokenizer::HFTokenizer;
 
-use std::collections::HashMap;
-
 /// Common tokenizer interface
 pub trait Tokenizer: Send + Sync {
     /// Encode text to token IDs

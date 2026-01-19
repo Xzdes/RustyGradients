@@ -2,14 +2,17 @@
 ///!
 ///! Compiles CUDA kernels to PTX when the `cuda` feature is enabled.
 
-use std::env;
-use std::path::PathBuf;
-use std::process::Command;
-
 fn main() {
     #[cfg(feature = "cuda")]
     compile_cuda_kernels();
 }
+
+#[cfg(feature = "cuda")]
+use std::env;
+#[cfg(feature = "cuda")]
+use std::path::PathBuf;
+#[cfg(feature = "cuda")]
+use std::process::Command;
 
 #[cfg(feature = "cuda")]
 fn compile_cuda_kernels() {

@@ -4,10 +4,7 @@
 ///! в один проход для уменьшения memory traffic и повышения производительности.
 
 use crate::error::{Result, RustyGradientsError};
-use ndarray::{Array, ArrayD, ArrayView, Axis, IxDyn};
-
-#[cfg(feature = "cpu")]
-use rayon::prelude::*;
+use ndarray::{ArrayD, Axis, IxDyn};
 
 /// Fused LayerNorm using Welford's one-pass algorithm
 ///
@@ -28,10 +25,11 @@ pub fn layer_norm_fused(
     beta: &ArrayD<f32>,
     epsilon: f32,
 ) -> Result<ArrayD<f32>> {
-    let last_axis = Axis(x.ndim() - 1);
+    let _last_axis = Axis(x.ndim() - 1);
     let normalized_dim = x.shape()[x.ndim() - 1];
 
     // Output shape same as input
+    #[allow(unused_mut, unused_assignments)]
     let mut output = ArrayD::zeros(x.raw_dim());
 
     // Prepare shapes for broadcasting
@@ -66,7 +64,7 @@ pub fn layer_norm_fused(
         let output_vecs: Vec<Vec<f32>> = input_slices
             .par_iter()
             .enumerate()
-            .map(|(slice_idx, &slice)| {
+            .map(|(_slice_idx, &slice)| {
                 // Welford's one-pass algorithm
                 let mut mean = 0.0f32;
                 let mut m2 = 0.0f32;
@@ -193,7 +191,7 @@ fn layer_norm_naive_fallback(
     let mut mean_shape = x.shape().to_vec();
     mean_shape[x.ndim() - 1] = 1;
     let mean_reshaped = mean
-        .into_shape(IxDyn(&mean_shape))
+        .into_shape_with_order(IxDyn(&mean_shape))
         .map_err(|e| RustyGradientsError::ShapeError(e.to_string()))?;
 
     let x_minus_mean = x - &mean_reshaped;
@@ -204,7 +202,7 @@ fn layer_norm_naive_fallback(
         .ok_or_else(|| RustyGradientsError::ShapeError("Failed to compute variance".to_string()))?;
 
     let variance_reshaped = variance
-        .into_shape(IxDyn(&mean_shape))
+        .into_shape_with_order(IxDyn(&mean_shape))
         .map_err(|e| RustyGradientsError::ShapeError(e.to_string()))?;
 
     let std_dev_inv = (&variance_reshaped + epsilon).mapv(|v| 1.0 / v.sqrt());
@@ -212,11 +210,11 @@ fn layer_norm_naive_fallback(
 
     let gamma_reshaped = gamma
         .clone()
-        .into_shape(IxDyn(&mean_shape))
+        .into_shape_with_order(IxDyn(&mean_shape))
         .map_err(|e| RustyGradientsError::ShapeError(e.to_string()))?;
     let beta_reshaped = beta
         .clone()
-        .into_shape(IxDyn(&mean_shape))
+        .into_shape_with_order(IxDyn(&mean_shape))
         .map_err(|e| RustyGradientsError::ShapeError(e.to_string()))?;
 
     Ok(&x_normalized * &gamma_reshaped + &beta_reshaped)

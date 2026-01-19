@@ -19,6 +19,7 @@ pub use checkpoint::{CheckpointManager, CheckpointEntry};
 // ModelMetadata defined below, not re-exported from safetensors_format
 
 use crate::error::Result;
+#[allow(unused_imports)]
 use crate::tensor::Tensor;
 use serde::{Deserialize, Serialize};
 use std::path::Path;

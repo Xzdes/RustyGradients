@@ -220,10 +220,15 @@ mod tests {
         let (loaded_data, loaded_shapes, loaded_names, loaded_metadata) =
             load_model(&temp_path).unwrap();
 
-        // Verify
+        // Verify (order may vary due to HashMap inside safetensors)
         assert_eq!(loaded_names.len(), 2);
-        assert_eq!(loaded_shapes[0], vec![2, 3]);
-        assert_eq!(loaded_shapes[1], vec![3]);
+
+        // Find indices for each tensor by name
+        let weight_idx = loaded_names.iter().position(|n| n == "layer1.weight").unwrap();
+        let bias_idx = loaded_names.iter().position(|n| n == "layer1.bias").unwrap();
+
+        assert_eq!(loaded_shapes[weight_idx], vec![2, 3]);
+        assert_eq!(loaded_shapes[bias_idx], vec![3]);
         assert_eq!(loaded_metadata.model_type, "TestModel");
 
         // Cleanup

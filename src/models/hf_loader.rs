@@ -12,11 +12,16 @@
 ///! - Safetensors format support
 
 use crate::error::{Result, RustyGradientsError};
+#[cfg(feature = "serialization")]
 use crate::serialization::ModelMetadata;
 use crate::tensor::Tensor;
+use crate::models::gpt::{GPTModel, GptConfig};
 use ndarray::ArrayD;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+
+/// Type alias for backward compatibility
+pub type GPT = GPTModel;
 
 /// HuggingFace model configuration
 #[derive(Debug, Clone)]
@@ -170,11 +175,10 @@ impl HFModelLoader {
             .zip(weight_names.iter())
         {
             let array = ArrayD::from_shape_vec(shape.clone(), data.clone())
-                .map_err(|e| RustyGradientsError::ShapeMismatch {
-                    expected: shape.clone(),
-                    actual: vec![data.len()],
-                    context: format!("Loading weight {}: {}", name, e),
-                })?;
+                .map_err(|e| RustyGradientsError::ShapeError(
+                    format!("Loading weight {}: expected shape {:?}, got {} elements: {}",
+                            name, shape, data.len(), e)
+                ))?;
 
             weights.insert(name.clone(), Tensor::new(array, false));
         }
@@ -200,17 +204,17 @@ impl HFModelLoader {
         self.verify_weights(weights)?;
 
         // Create model with config
-        let mut model = GPT::new(
-            self.config.vocab_size,
-            self.config.embedding_dim,
-            self.config.num_layers,
-            self.config.num_heads,
-            self.config.block_size,
-            self.config.dropout,
-        );
+        let gpt_config = GptConfig {
+            vocab_size: self.config.vocab_size,
+            embedding_dim: self.config.embedding_dim,
+            num_layers: self.config.num_layers,
+            num_heads: self.config.num_heads,
+            block_size: self.config.block_size,
+        };
+        let model = GPT::new(gpt_config);
 
         // Map weights using HuggingFace naming convention
-        self.map_weights_to_model(&mut model, weights)?;
+        self.map_weights_to_model(&model, weights)?;
 
         println!("✅ Model created successfully!");
         Ok(model)
@@ -242,7 +246,7 @@ impl HFModelLoader {
     /// Map HuggingFace weights to RustyGradients model
     fn map_weights_to_model(
         &self,
-        model: &mut GPT,
+        _model: &GPT,
         weights: &HashMap<String, Tensor>,
     ) -> Result<()> {
         println!("🗺️  Mapping weights...");
@@ -272,6 +276,7 @@ impl HFModelLoader {
         ];
 
         let mut mapped_count = 0;
+        let total_mappings = mappings.len();
 
         for (hf_name, _rg_name) in mappings {
             if weights.contains_key(hf_name) {
@@ -280,7 +285,7 @@ impl HFModelLoader {
             }
         }
 
-        println!("✅ Mapped {}/{} weights", mapped_count, mappings.len());
+        println!("✅ Mapped {}/{} weights", mapped_count, total_mappings);
 
         // TODO: Actually copy weights to model tensors
         // This requires refactoring GPT model to expose weight setters
@@ -294,6 +299,7 @@ impl HFModelLoader {
     }
 
     /// Get model metadata
+    #[cfg(feature = "serialization")]
     pub fn metadata(&self) -> ModelMetadata {
         ModelMetadata {
             model_type: "GPT".to_string(),

@@ -2,7 +2,6 @@
 use crate::nn::{Embedding, LayerNorm, Linear, Module, Sequential, TransformerBlock};
 use crate::tensor::Tensor;
 use crate::error::Result;
-use std::ops::{Add};
 
 // Конфигурация модели, которую мы будем передавать из JS.
 #[derive(Clone)]

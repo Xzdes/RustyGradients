@@ -3,7 +3,6 @@
 use crate::nn::{Linear, Module};
 use crate::tensor::Tensor;
 use crate::error::Result;
-use std::ops::Mul;
 
 /// Реализация многоголового внимания (Multi-Head Self-Attention).
 ///

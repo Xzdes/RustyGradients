@@ -10,9 +10,6 @@ use super::fused;
 use crate::error::{Result, RustyGradientsError};
 use ndarray::{Array, ArrayD, Axis, IxDyn};
 
-#[cfg(feature = "cpu")]
-use rayon::prelude::*;
-
 #[cfg(feature = "cpu-blas")]
 use ndarray_linalg::Dot;
 
@@ -257,7 +254,7 @@ impl Backend for CpuBackend {
         let max_reshaped = {
             let mut new_shape = a.shape().to_vec();
             new_shape[a.ndim() - 1] = 1;
-            max_vals.into_shape(new_shape).unwrap()
+            max_vals.into_shape_with_order(new_shape).unwrap()
         };
 
         let exp_vals = (a - &max_reshaped).mapv(|x| x.exp());
@@ -266,7 +263,7 @@ impl Backend for CpuBackend {
         let sum_reshaped = {
             let mut new_shape = a.shape().to_vec();
             new_shape[a.ndim() - 1] = 1;
-            sum_exp.into_shape(new_shape).unwrap()
+            sum_exp.into_shape_with_order(new_shape).unwrap()
         };
 
         Ok(&exp_vals / &sum_reshaped)
@@ -294,7 +291,7 @@ impl Backend for CpuBackend {
 
     fn reshape(&self, a: &Self::Storage, new_shape: &[usize]) -> Result<Self::Storage> {
         a.clone()
-            .into_shape(IxDyn(new_shape))
+            .into_shape_with_order(IxDyn(new_shape))
             .map_err(|e| RustyGradientsError::ShapeError(format!("Reshape failed: {}", e)))
     }
 

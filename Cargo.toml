@@ -1,10 +1,10 @@
 [package]
 name = "rusty-gradients"
-version = "0.1.1" 
+version = "0.2.0"
 edition = "2021"
 authors = ["Xzdes"]
 
-description = "A full-stack deep learning framework in Rust for training and deploying Transformer models, with support for CLI, WebAssembly, and library usage."
+description = "A full-stack deep learning framework in Rust for training and deploying Transformer models. Features multi-backend support (CPU/CUDA/Metal/WASM), 62x GPU acceleration, Safetensors serialization, and BPE tokenization."
 
 license = "MIT"
 
@@ -14,10 +14,9 @@ repository = "https://github.com/Xzdes/RustyGradients"
 homepage = "https://github.com/Xzdes/RustyGradients"
 
 
-keywords = ["machine-learning", "autograd", "gpt", "transformer", "wasm"]
+keywords = ["machine-learning", "deep-learning", "gpt", "transformer", "cuda"]
 
-# ОЧЕНЬ ВАЖНО: Категории, по которым ваш крейт будет отсортирован.
-categories = ["science", "wasm", "command-line-utilities"]
+categories = ["science", "wasm", "algorithms"]
 
 # Указываем, какой файл README использовать.
 readme = "README.md"
@@ -91,9 +90,13 @@ default = ["cpu"]
 cpu = ["dep:rayon"]
 cpu-blas = ["cpu", "dep:ndarray-linalg", "dep:openblas-src"]  # BLAS acceleration (10-50x matmul speedup)
 cuda = ["dep:candle-core", "dep:cudarc"]
+metal = ["metal-backend"]  # Alias for metal-backend
 metal-backend = ["dep:candle-core", "dep:metal"]
 accelerate = ["dep:candle-core"]  # Apple Silicon optimizations
 candle = ["dep:candle-core", "dep:candle-nn"]
+
+# SIMD optimizations (auto-enabled on supported platforms)
+simd = []
 
 # Advanced features
 serialization = ["dep:safetensors", "dep:memmap2"]

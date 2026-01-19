@@ -1,0 +1,22 @@
+# Cargo configuration for RustyGradients
+#
+# This prevents accidental compilation with platform-specific features
+# that won't work on the current platform.
+
+[alias]
+# Convenient aliases for common operations
+b = "build --features cpu"
+t = "test --lib --features 'cpu serialization'"
+c = "check --features 'cpu serialization'"
+
+# For development on Windows (no CUDA/Metal)
+[target.'cfg(windows)']
+# Exclude features that require platform-specific dependencies
+
+# For development on macOS (Metal available)
+[target.'cfg(target_os = "macos")']
+# Metal backend available
+
+# For development on Linux (CUDA available if toolkit installed)
+[target.'cfg(target_os = "linux")']
+# CUDA backend available if nvcc in PATH
