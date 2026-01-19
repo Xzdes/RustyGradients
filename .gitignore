@@ -1,7 +1,22 @@
+# Build artifacts
 /target
 
+# WASM package (build output)
 /pkg
 
+# Large data files
 knowledge_base.json
+*.safetensors
 
+# Test/training data
 input.txt
+/checkpoints
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

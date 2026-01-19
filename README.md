@@ -46,10 +46,10 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rusty-gradients = "0.1"
+rusty-gradients = "0.2"
 
 # Optional features
-rusty-gradients = { version = "0.1", features = ["cpu-blas", "serialization"] }
+rusty-gradients = { version = "0.2", features = ["cpu-blas", "serialization"] }
 ```
 
 ### Available Features
@@ -433,7 +433,6 @@ run();
 
 ### Additional Resources
 
-- **[PERFORMANCE.md](PERFORMANCE.md)** - Detailed performance analysis
 - **[examples/](examples/)** - Complete working examples
 - **[benches/](benches/)** - Performance benchmarks
 
